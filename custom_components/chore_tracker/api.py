@@ -126,6 +126,40 @@ class ChoreTrackerApiClient:
             json_data=body if body is not None else {},
         )
 
+    async def async_skip_occurrence(self, occurrence_id: str) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/skip."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/skip",
+            json_data={},
+        )
+
+    async def async_snooze_occurrence(
+        self,
+        occurrence_id: str,
+        *,
+        snooze_until: str,
+    ) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/snooze."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/snooze",
+            json_data={"snoozeUntil": snooze_until},
+        )
+
+    async def async_reassign_occurrence(
+        self,
+        occurrence_id: str,
+        *,
+        assignee_id: str,
+    ) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/reassign."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/reassign",
+            json_data={"assigneeId": assignee_id},
+        )
+
     async def async_create_chore(self, payload: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/chores."""
         return await self._request("POST", "/api/v1/chores", json_data=payload)

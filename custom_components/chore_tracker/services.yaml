@@ -1,0 +1,40 @@
+# Chore Tracker domain services
+complete:
+  fields:
+    occurrence_id: &occurrence_id
+      required: true
+      example: occ_…
+      selector:
+        text:
+    completed_for_member_id:
+      required: false
+      example: mem_…
+      selector:
+        text:
+    config_entry_id: &config_entry_id
+      required: false
+      selector:
+        config_entry:
+          integration: chore_tracker
+skip:
+  fields:
+    occurrence_id: *occurrence_id
+    config_entry_id: *config_entry_id
+snooze:
+  fields:
+    occurrence_id: *occurrence_id
+    snooze_until:
+      required: true
+      example: "2026-09-28T18:00:00"
+      selector:
+        text:
+    config_entry_id: *config_entry_id
+assign:
+  fields:
+    occurrence_id: *occurrence_id
+    assignee_id:
+      required: true
+      example: mem_…
+      selector:
+        text:
+    config_entry_id: *config_entry_id

@@ -21,15 +21,13 @@ from homeassistant.util import slugify
 
 from .api import ChoreTrackerApiError, ChoreTrackerConnectionError
 from .entity import ChoreTrackerEntity
-from .helpers import parse_due_at
+from .helpers import chore_title, is_actionable, occurrence_row, parse_due_at
 
 if TYPE_CHECKING:
     from . import ChoreTrackerConfigEntry
     from .coordinator import ChoreTrackerCoordinator
 
 PARALLEL_UPDATES = 0
-
-ACTIONABLE_STATES = frozenset({"pending", "snoozed"})
 
 _UNSUPPORTED_MSG = (
     "Chore Tracker todo lists only support completing items and creating "
@@ -38,29 +36,8 @@ _UNSUPPORTED_MSG = (
 )
 
 
-def _occurrence_row(item: dict[str, Any]) -> dict[str, Any] | None:
-    occurrence = item.get("occurrence")
-    return occurrence if isinstance(occurrence, dict) else None
-
-
-def _chore_title(item: dict[str, Any]) -> str:
-    chore = item.get("chore")
-    if isinstance(chore, dict):
-        title = chore.get("title")
-        if isinstance(title, str) and title:
-            return title
-    return "Chore"
-
-
-def _is_actionable(item: dict[str, Any]) -> bool:
-    occurrence = _occurrence_row(item)
-    if occurrence is None:
-        return False
-    return occurrence.get("state") in ACTIONABLE_STATES
-
-
 def _to_todo_item(item: dict[str, Any]) -> TodoItem | None:
-    occurrence = _occurrence_row(item)
+    occurrence = occurrence_row(item)
     if occurrence is None:
         return None
     uid = occurrence.get("id")
@@ -68,7 +45,7 @@ def _to_todo_item(item: dict[str, Any]) -> TodoItem | None:
         return None
     return TodoItem(
         uid=uid,
-        summary=_chore_title(item),
+        summary=chore_title(item),
         status=TodoItemStatus.NEEDS_ACTION,
         due=parse_due_at(occurrence.get("dueAt")),
     )
@@ -208,9 +185,11 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
             msg = "Missing occurrence id"
             raise HomeAssistantError(msg)
         try:
-            await self.coordinator.client.async_complete_occurrence(uid)
+            result = await self.coordinator.client.async_complete_occurrence(uid)
         except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
             raise HomeAssistantError(str(err)) from err
+        if isinstance(result, dict):
+            self.coordinator.fire_completed_from_action(result)
         await self.coordinator.async_request_refresh()
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:  # noqa: ARG002
@@ -233,7 +212,7 @@ class ChoreTrackerHouseholdTodoEntity(ChoreTrackerTodoEntity):
         self.entity_id = "todo.household_chores"
 
     def _filtered_items(self) -> list[dict[str, Any]]:
-        return [row for row in self._occurrences if _is_actionable(row)]
+        return [row for row in self._occurrences if is_actionable(row)]
 
     def _assignment_for_create(self) -> dict[str, Any]:
         return {"strategy": "open", "pool": []}
@@ -267,9 +246,9 @@ class ChoreTrackerMemberTodoEntity(ChoreTrackerTodoEntity):
     def _filtered_items(self) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for row in self._occurrences:
-            if not _is_actionable(row):
+            if not is_actionable(row):
                 continue
-            occurrence = _occurrence_row(row)
+            occurrence = occurrence_row(row)
             if occurrence is None:
                 continue
             if occurrence.get("assigneeId") == self._member_id:

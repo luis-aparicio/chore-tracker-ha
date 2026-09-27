@@ -138,7 +138,28 @@ def _configure_client(client: MagicMock) -> MagicMock:
     client.async_get_snapshot = AsyncMock(return_value=_snapshot())
     client.async_get_occurrences = AsyncMock(return_value=OCCURRENCES)
     client.async_complete_occurrence = AsyncMock(
-        return_value={"occurrence": {"id": "occ_alex_1", "state": "completed"}}
+        return_value={
+            "occurrence": {"id": "occ_alex_1", "state": "completed"},
+            "event": {
+                "id": "evt_complete_1",
+                "householdId": HOUSEHOLD["id"],
+                "type": "completed",
+                "choreId": "chore_1",
+                "occurrenceId": "occ_alex_1",
+                "actorId": "mem_alex",
+                "payload": {},
+                "createdAt": "2026-01-01T00:00:00.000Z",
+            },
+        }
+    )
+    client.async_skip_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "state": "skipped"}}
+    )
+    client.async_snooze_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "state": "snoozed"}}
+    )
+    client.async_reassign_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "assigneeId": "mem_sam"}}
     )
     client.async_create_chore = AsyncMock(
         return_value={"id": "chore_new", "title": "New chore"}

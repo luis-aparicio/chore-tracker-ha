@@ -106,6 +106,41 @@ async def test_ws_message_handling() -> None:
     assert messages[0]["type"] == "event"
 
 
+async def test_skip_snooze_reassign_paths() -> None:
+    """Skip / snooze / reassign hit the expected REST paths."""
+    session = MagicMock()
+    response = MagicMock()
+    response.status = 200
+    response.raise_for_status = MagicMock()
+    response.json = AsyncMock(return_value={"ok": True})
+    response.__aenter__ = AsyncMock(return_value=response)
+    response.__aexit__ = AsyncMock(return_value=None)
+    session.request = MagicMock(return_value=response)
+
+    api = ChoreTrackerApiClient(
+        url="http://host:8080",
+        token="ct_secret",
+        session=session,
+    )
+
+    await api.async_skip_occurrence("occ_1")
+    method, url = session.request.call_args.args[:2]
+    assert method == "POST"
+    assert url.endswith("/api/v1/occurrences/occ_1/skip")
+
+    await api.async_snooze_occurrence("occ_1", snooze_until="2026-09-28T18:00:00")
+    _method, url = session.request.call_args.args[:2]
+    assert url.endswith("/api/v1/occurrences/occ_1/snooze")
+    assert session.request.call_args.kwargs["json"] == {
+        "snoozeUntil": "2026-09-28T18:00:00"
+    }
+
+    await api.async_reassign_occurrence("occ_1", assignee_id="mem_sam")
+    _method, url = session.request.call_args.args[:2]
+    assert url.endswith("/api/v1/occurrences/occ_1/reassign")
+    assert session.request.call_args.kwargs["json"] == {"assigneeId": "mem_sam"}
+
+
 async def test_coordinator_poll_and_ws_refresh(hass: HomeAssistant) -> None:
     """Coordinator poll enriches snapshot; WS message requests refresh."""
     client = AsyncMock()

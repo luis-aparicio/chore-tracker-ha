@@ -20,8 +20,13 @@ async def test_setup_and_unload(
     assert entry.runtime_data is not None
     assert Platform.TODO in PLATFORMS
     assert Platform.CALENDAR in PLATFORMS
+    assert Platform.SENSOR in PLATFORMS
+    assert Platform.BINARY_SENSOR in PLATFORMS
     assert hass.states.get("todo.household_chores") is not None
     assert hass.states.get("calendar.chores") is not None
+    assert hass.states.get("binary_sensor.household_overdue") is not None
+    assert hass.states.get("sensor.alex_due_today") is not None
+    assert hass.states.get("sensor.alex_overdue") is not None
     client = entry.runtime_data.client
 
     assert await hass.config_entries.async_unload(entry.entry_id)
