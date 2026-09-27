@@ -514,28 +514,115 @@ Y._$litElement$ = !0, Y.finalized = !0, J.litElementHydrateSupport?.({ LitElemen
 var ge = J.litElementPolyfillSupport;
 ge?.({ LitElement: Y }), (J.litElementVersions ??= []).push("4.2.2");
 //#endregion
+//#region src/freshness.ts
+function X(e, t, n = Date.now()) {
+	let r = e.freshnessPct;
+	if (typeof r == "number" && Number.isFinite(r)) return Z(100 - r);
+	let i = Math.max(1, t) * 24 * 60 * 60 * 1e3;
+	if (e.lastCompletedAt == null) return 100;
+	let a = Date.parse(e.lastCompletedAt);
+	return Number.isNaN(a) ? 100 : Z(Math.max(0, n - a) / i * 100);
+}
+function Z(e) {
+	return Number.isFinite(e) ? Math.min(100, Math.max(0, e)) : 0;
+}
+function _e(e) {
+	let t = Z(e);
+	return t < 40 ? "var(--success-color, #4caf50)" : t < 75 ? "var(--warning-color, #ff9800)" : "var(--error-color, #db4437)";
+}
+function ve(e, t) {
+	if (t === "chore") return [{
+		key: "chores",
+		label: "Chores",
+		rows: [...e].sort((e, t) => e.title.localeCompare(t.title))
+	}];
+	let n = /* @__PURE__ */ new Map();
+	for (let t of e) {
+		let e = t.roomId ?? "__unassigned__", r = t.roomName?.trim() || "No room", i = n.get(e);
+		i || (i = {
+			key: e,
+			label: r,
+			rows: []
+		}, n.set(e, i)), i.rows.push(t);
+	}
+	return [...n.values()].map((e) => ({
+		...e,
+		rows: e.rows.sort((e, t) => e.title.localeCompare(t.title))
+	})).sort((e, t) => e.key === "__unassigned__" ? 1 : t.key === "__unassigned__" ? -1 : e.label.localeCompare(t.label));
+}
+//#endregion
+//#region src/todo-helpers.ts
+var ye = "todo.household_chores", be = /^todo\.[a-z0-9_]+_chores$/;
+function xe(e, t) {
+	let n = e.attributes?.friendly_name;
+	return typeof n == "string" && n.trim() ? n.replace(/\s+chores$/i, "").trim() || n.trim() : t.replace(/^todo\./, "").replace(/_chores$/, "").split("_").filter(Boolean).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
+}
+function Se(e) {
+	let t = [];
+	for (let [n, r] of Object.entries(e.states)) n !== ye && be.test(n) && t.push({
+		entityId: n,
+		label: xe(r, n)
+	});
+	return t.sort((e, t) => e.label.localeCompare(t.label));
+}
+async function Ce(e, t) {
+	let n = [];
+	if (typeof e.callWS == "function") {
+		let r = await e.callWS({
+			type: "todo/item/list",
+			entity_id: t
+		});
+		n = Array.isArray(r?.items) ? r.items : [];
+	} else {
+		let r = e.states[t]?.attributes?.items;
+		n = Array.isArray(r) ? r : [];
+	}
+	return n.filter((e) => typeof e.uid == "string" && e.uid.length > 0 && e.status !== "completed");
+}
+var we = "chore_tracker";
+//#endregion
+//#region src/shared.ts
+function Te(e) {
+	if (!e) return;
+	let t = Date.parse(e);
+	if (!Number.isFinite(t)) return e;
+	try {
+		return new Intl.DateTimeFormat(void 0, {
+			month: "short",
+			day: "numeric",
+			hour: "numeric",
+			minute: "2-digit"
+		}).format(new Date(t));
+	} catch {
+		return e;
+	}
+}
+async function Ee(e, t) {
+	await e.callService(we, "complete", { occurrence_id: t });
+}
+async function De(e, t) {
+	if (typeof e.callWS != "function") return [];
+	let n = { type: "chore_tracker/freshness" };
+	t && (n.config_entry_id = t);
+	let r = await e.callWS(n);
+	return Array.isArray(r?.rows) ? r.rows : [];
+}
+//#endregion
 //#region src/types.ts
-function X(e, t, n) {
+function Q(e, t, n) {
 	e.dispatchEvent(new CustomEvent(t, {
 		detail: n,
 		bubbles: !0,
 		composed: !0
 	}));
 }
-var Z = "\n  :host {\n    display: block;\n  }\n\n  ha-card {\n    display: block;\n    background: var(--ha-card-background, var(--card-background-color, #fff));\n    border-radius: var(--ha-card-border-radius, 12px);\n    box-shadow: var(--ha-card-box-shadow, none);\n    border: var(--ha-card-border-width, 1px) solid\n      var(--ha-card-border-color, var(--divider-color, #e0e0e0));\n    color: var(--primary-text-color, #212121);\n  }\n\n  .content {\n    padding: 12px 16px 16px;\n  }\n\n  h2 {\n    margin: 0 0 8px;\n    font-size: 1.05rem;\n    font-weight: 600;\n    color: var(--primary-text-color, #212121);\n  }\n\n  .muted {\n    margin: 0;\n    color: var(--secondary-text-color, #5c5c5c);\n    font-size: 0.9rem;\n    line-height: 1.4;\n  }\n\n  .error {\n    margin: 0;\n    color: var(--error-color, #db4437);\n    font-size: 0.9rem;\n  }\n", _e = [
-	{
-		value: "week",
-		label: "This week"
-	},
-	{
-		value: "month",
-		label: "This month"
-	},
-	{
-		value: "all_time",
-		label: "All time"
-	}
-], ve = class extends Y {
+var $ = "\n  :host {\n    display: block;\n  }\n\n  ha-card {\n    display: block;\n    background: var(--ha-card-background, var(--card-background-color, #fff));\n    border-radius: var(--ha-card-border-radius, 12px);\n    box-shadow: var(--ha-card-box-shadow, none);\n    border: var(--ha-card-border-width, 1px) solid\n      var(--ha-card-border-color, var(--divider-color, #e0e0e0));\n    color: var(--primary-text-color, #212121);\n  }\n\n  .content {\n    padding: 12px 16px 16px;\n  }\n\n  h2 {\n    margin: 0 0 8px;\n    font-size: 1.05rem;\n    font-weight: 600;\n    color: var(--primary-text-color, #212121);\n  }\n\n  .muted {\n    margin: 0;\n    color: var(--secondary-text-color, #5c5c5c);\n    font-size: 0.9rem;\n    line-height: 1.4;\n  }\n\n  .error {\n    margin: 0;\n    color: var(--error-color, #db4437);\n    font-size: 0.9rem;\n  }\n", Oe = [{
+	value: "room",
+	label: "Room"
+}, {
+	value: "chore",
+	label: "Chore"
+}], ke = class extends Y {
 	static properties = {
 		hass: { attribute: !1 },
 		_config: { state: !0 }
@@ -572,7 +659,709 @@ var Z = "\n  :host {\n    display: block;\n  }\n\n  ha-card {\n    display: bloc
 			...this._config,
 			...e
 		};
-		this._config = t, X(this, "config-changed", { config: t });
+		this._config = t, Q(this, "config-changed", { config: t });
+	}
+	_onTitleInput(e) {
+		let t = e.target.value.trim();
+		this._update({ title: t || void 0 });
+	}
+	_onGroupByChange(e) {
+		let t = e.target;
+		this._update({ group_by: t.value });
+	}
+	_onHorizonInput(e) {
+		let t = e.target, n = Number.parseInt(t.value, 10);
+		if (!Number.isFinite(n) || n < 1) {
+			this._update({ horizon_days: 7 });
+			return;
+		}
+		this._update({ horizon_days: n });
+	}
+	render() {
+		if (!this._config) return B;
+		let e = this._config.group_by ?? "room", t = this._config.horizon_days ?? 7;
+		return R`
+      <div class="row">
+        <label for="title">Title (optional)</label>
+        <input
+          id="title"
+          type="text"
+          .value=${this._config.title ?? ""}
+          placeholder="Freshness"
+          @change=${this._onTitleInput}
+        />
+      </div>
+      <div class="row">
+        <label for="group_by">Group by</label>
+        <select id="group_by" .value=${e} @change=${this._onGroupByChange}>
+          ${Oe.map((t) => R`
+              <option value=${t.value} ?selected=${t.value === e}>
+                ${t.label}
+              </option>
+            `)}
+        </select>
+      </div>
+      <div class="row">
+        <label for="horizon_days">Horizon (days)</label>
+        <input
+          id="horizon_days"
+          type="number"
+          min="1"
+          step="1"
+          .value=${String(t)}
+          @change=${this._onHorizonInput}
+        />
+      </div>
+    `;
+	}
+};
+customElements.get("chore-tracker-freshness-card-editor") || customElements.define("chore-tracker-freshness-card-editor", ke);
+//#endregion
+//#region src/freshness-card.ts
+var Ae = class extends Y {
+	static properties = {
+		hass: { attribute: !1 },
+		_config: { state: !0 },
+		_rows: { state: !0 },
+		_loading: { state: !0 },
+		_error: { state: !0 },
+		_busyId: { state: !0 }
+	};
+	_lastTodoSignature;
+	_fetchGeneration = 0;
+	constructor() {
+		super(), this._rows = [], this._loading = !1;
+	}
+	static styles = s`
+    ${o($)}
+
+    .header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .header h2 {
+      margin: 0;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--secondary-text-color, #5c5c5c);
+      white-space: nowrap;
+    }
+
+    .group {
+      margin-top: 12px;
+    }
+
+    .group:first-of-type {
+      margin-top: 0;
+    }
+
+    .group-label {
+      margin: 0 0 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--secondary-text-color, #5c5c5c);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    button.row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      min-height: 52px;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--secondary-background-color, #f5f5f5);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button.row:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: -2px;
+    }
+
+    button.row.busy {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .title {
+      font-weight: 500;
+      font-size: 0.95rem;
+      line-height: 1.3;
+    }
+
+    .pct {
+      font-size: 0.8rem;
+      color: var(--secondary-text-color, #5c5c5c);
+      white-space: nowrap;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--divider-color, #e0e0e0);
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.2s ease;
+    }
+
+    .empty {
+      margin: 0;
+      padding: 16px 12px;
+      border-radius: 8px;
+      background: var(--secondary-background-color, #f5f5f5);
+      color: var(--secondary-text-color, #5c5c5c);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    @media (min-width: 768px) {
+      .content {
+        padding: 14px 18px 18px;
+      }
+
+      button.row {
+        min-height: 48px;
+        padding: 12px 14px;
+      }
+
+      .title {
+        font-size: 1rem;
+      }
+    }
+  `;
+	static getConfigElement() {
+		return document.createElement("chore-tracker-freshness-card-editor");
+	}
+	static getStubConfig() {
+		return {
+			type: "custom:chore-tracker-freshness-card",
+			title: "Freshness",
+			group_by: "room",
+			horizon_days: 7
+		};
+	}
+	setConfig(e) {
+		if (!e || typeof e != "object") throw Error("Invalid chore-tracker-freshness-card config");
+		let t = e.group_by ?? "room";
+		if (t !== "room" && t !== "chore") throw Error("chore-tracker-freshness-card group_by must be room or chore");
+		let n = e.horizon_days ?? 7;
+		if (!Number.isFinite(n) || n < 1) throw Error("chore-tracker-freshness-card horizon_days must be >= 1");
+		this._config = {
+			...e,
+			group_by: t,
+			horizon_days: n
+		}, this._error = void 0;
+	}
+	_todoSignature() {
+		return this.hass?.states ? Object.entries(this.hass.states).filter(([e]) => e.startsWith("todo.") && e.endsWith("_chores")).map(([e, t]) => `${e}:${t.state}`).sort().join("|") : "";
+	}
+	updated(e) {
+		if (!this._config || !this.hass) return;
+		let t = this._todoSignature(), n = e.has("hass");
+		(e.has("_config") || n && t !== this._lastTodoSignature || n && this._rows.length === 0 && !this._loading) && (this._lastTodoSignature = t, this._load());
+	}
+	_horizon() {
+		return this._config?.horizon_days ?? 7;
+	}
+	_groupBy() {
+		return this._config?.group_by ?? "room";
+	}
+	async _load() {
+		let e = this.hass;
+		if (!e) return;
+		let t = ++this._fetchGeneration;
+		this._loading = !0, this._error = void 0;
+		try {
+			let n = await De(e, this._config?.config_entry_id);
+			if (t !== this._fetchGeneration) return;
+			this._rows = n;
+		} catch (e) {
+			if (t !== this._fetchGeneration) return;
+			this._error = e instanceof Error ? e.message : "Failed to load freshness", this._rows = [];
+		} finally {
+			t === this._fetchGeneration && (this._loading = !1);
+		}
+	}
+	_beginBusy(e) {
+		return this._busyId === void 0 && (this._busyId = e, !0);
+	}
+	async _complete(e) {
+		let t = this.hass;
+		if (t && this._beginBusy(e.occurrenceId)) {
+			this._error = void 0;
+			try {
+				await Ee(t, e.occurrenceId), await this._load();
+			} catch (e) {
+				this._error = e instanceof Error ? e.message : "Failed to complete";
+			} finally {
+				this._busyId = void 0;
+			}
+		}
+	}
+	render() {
+		if (!this._config) return B;
+		this.hass;
+		let e = this._config.title ?? "Freshness", t = this._horizon(), n = this._groupBy(), r = ve(this._rows, n).map((e) => ({
+			...e,
+			rows: [...e.rows].sort((e, n) => {
+				let r = X(e, t), i = X(n, t);
+				return r === i ? e.title.localeCompare(n.title) : i - r;
+			})
+		})), i = !this._loading && this._rows.length === 0 && !this._error;
+		return R`
+      <ha-card>
+        <div class="content">
+          <div class="header">
+            <h2>${e}</h2>
+            <span class="meta">${t}d horizon</span>
+          </div>
+          ${this._error ? R`<p class="error">${this._error}</p>` : B}
+          ${this._loading && this._rows.length === 0 ? R`<p class="muted">Loading…</p>` : B}
+          ${i ? R`<p class="empty">No chores to show freshness for.</p>` : B}
+          ${r.map((e) => R`
+              <div class="group">
+                ${n === "room" ? R`<p class="group-label">${e.label}</p>` : B}
+                <ul>
+                  ${e.rows.map((e) => {
+			let n = Math.round(X(e, t)), r = _e(n);
+			return R`
+                      <li>
+                        <button
+                          type="button"
+                          class="row ${this._busyId === e.occurrenceId ? "busy" : ""}"
+                          @click=${() => void this._complete(e)}
+                        >
+                          <div class="title-row">
+                            <span class="title">${e.title}</span>
+                            <span class="pct">${n}%</span>
+                          </div>
+                          <div class="bar" aria-hidden="true">
+                            <div
+                              class="fill"
+                              style="width: ${n}%; background: ${r}"
+                            ></div>
+                          </div>
+                        </button>
+                      </li>
+                    `;
+		})}
+                </ul>
+              </div>
+            `)}
+        </div>
+      </ha-card>
+    `;
+	}
+};
+customElements.get("chore-tracker-freshness-card") || customElements.define("chore-tracker-freshness-card", Ae);
+//#endregion
+//#region src/kiosk-editor.ts
+var je = class extends Y {
+	static properties = {
+		hass: { attribute: !1 },
+		_config: { state: !0 }
+	};
+	static styles = s`
+    .row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--secondary-text-color, #5c5c5c);
+    }
+
+    input {
+      font: inherit;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #212121);
+    }
+
+    .hint {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--secondary-text-color, #5c5c5c);
+      line-height: 1.4;
+    }
+  `;
+	setConfig(e) {
+		this._config = { ...e };
+	}
+	_update(e) {
+		if (!this._config) return;
+		let t = {
+			...this._config,
+			...e
+		};
+		this._config = t, Q(this, "config-changed", { config: t });
+	}
+	_onTitleInput(e) {
+		let t = e.target.value.trim();
+		this._update({ title: t || void 0 });
+	}
+	render() {
+		return this._config ? R`
+      <div class="row">
+        <label for="title">Title (optional)</label>
+        <input
+          id="title"
+          type="text"
+          .value=${this._config.title ?? ""}
+          placeholder="Kiosk"
+          @change=${this._onTitleInput}
+        />
+      </div>
+      <p class="hint">
+        Member chips are auto-discovered from todo.*_chores (household list excluded). No PIN.
+      </p>
+    ` : B;
+	}
+};
+customElements.get("chore-tracker-kiosk-card-editor") || customElements.define("chore-tracker-kiosk-card-editor", je);
+//#endregion
+//#region src/kiosk-card.ts
+var Me = class extends Y {
+	static properties = {
+		hass: { attribute: !1 },
+		_config: { state: !0 },
+		_members: { state: !0 },
+		_selectedEntity: { state: !0 },
+		_items: { state: !0 },
+		_loading: { state: !0 },
+		_error: { state: !0 },
+		_busyUid: { state: !0 }
+	};
+	_lastEntity;
+	_lastState;
+	_fetchGeneration = 0;
+	constructor() {
+		super(), this._members = [], this._items = [], this._loading = !1;
+	}
+	static styles = s`
+    ${o($)}
+
+    .header h2 {
+      margin: 0 0 12px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    button.chip {
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 500;
+      min-height: 44px;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      background: var(--secondary-background-color, #f5f5f5);
+      color: var(--primary-text-color, #212121);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button.chip.active {
+      background: var(--primary-color, #03a9f4);
+      border-color: var(--primary-color, #03a9f4);
+      color: var(--text-primary-color, #fff);
+    }
+
+    button.chip:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: 2px;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    button.big {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      width: 100%;
+      min-height: 72px;
+      padding: 16px 18px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--secondary-background-color, #f5f5f5);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    button.big:focus-visible {
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: -2px;
+    }
+
+    button.big.busy {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .summary {
+      font-weight: 600;
+      font-size: 1.15rem;
+      line-height: 1.3;
+    }
+
+    .due {
+      font-size: 0.9rem;
+      color: var(--secondary-text-color, #5c5c5c);
+    }
+
+    .empty {
+      margin: 0;
+      padding: 20px 14px;
+      border-radius: 8px;
+      background: var(--secondary-background-color, #f5f5f5);
+      color: var(--secondary-text-color, #5c5c5c);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    @media (min-width: 768px) {
+      .content {
+        padding: 16px 20px 20px;
+      }
+
+      button.big {
+        min-height: 80px;
+        padding: 18px 22px;
+      }
+
+      .summary {
+        font-size: 1.25rem;
+      }
+    }
+  `;
+	static getConfigElement() {
+		return document.createElement("chore-tracker-kiosk-card-editor");
+	}
+	static getStubConfig() {
+		return {
+			type: "custom:chore-tracker-kiosk-card",
+			title: "Kiosk"
+		};
+	}
+	setConfig(e) {
+		if (!e || typeof e != "object") throw Error("Invalid chore-tracker-kiosk-card config");
+		this._config = { ...e }, this._error = void 0;
+	}
+	updated(e) {
+		if (!this._config || !this.hass) return;
+		(e.has("hass") || e.has("_config")) && this._syncMembers();
+		let t = this._selectedEntity;
+		if (!t) return;
+		let n = this.hass.states[t]?.state, r = e.has("hass");
+		(e.has("_selectedEntity") || r && (t !== this._lastEntity || n !== this._lastState)) && (this._lastEntity = t, this._lastState = n, this._loadItems());
+	}
+	_syncMembers() {
+		if (!this.hass) return;
+		let e = Se(this.hass);
+		if (this._members = e, e.length === 0) {
+			this._selectedEntity = void 0, this._items = [];
+			return;
+		}
+		(!this._selectedEntity || !e.some((e) => e.entityId === this._selectedEntity)) && (this._selectedEntity = e[0]?.entityId);
+	}
+	async _loadItems() {
+		let e = this._selectedEntity, t = this.hass;
+		if (!e || !t) return;
+		let n = ++this._fetchGeneration;
+		this._loading = !0, this._error = void 0;
+		try {
+			let r = await Ce(t, e);
+			if (n !== this._fetchGeneration) return;
+			this._items = r;
+		} catch (e) {
+			if (n !== this._fetchGeneration) return;
+			this._error = e instanceof Error ? e.message : "Failed to load chores", this._items = [];
+		} finally {
+			n === this._fetchGeneration && (this._loading = !1);
+		}
+	}
+	_select(e) {
+		e !== this._selectedEntity && (this._selectedEntity = e, this._items = []);
+	}
+	_beginBusy(e) {
+		return this._busyUid === void 0 && (this._busyUid = e, !0);
+	}
+	async _complete(e) {
+		let t = this.hass;
+		if (t && this._beginBusy(e)) {
+			this._error = void 0;
+			try {
+				await Ee(t, e), await this._loadItems();
+			} catch (e) {
+				this._error = e instanceof Error ? e.message : "Failed to complete";
+			} finally {
+				this._busyUid = void 0;
+			}
+		}
+	}
+	render() {
+		if (!this._config) return B;
+		this.hass;
+		let e = this._config.title ?? "Kiosk", t = this._members.length === 0;
+		return R`
+      <ha-card>
+        <div class="content">
+          <div class="header">
+            <h2>${e}</h2>
+          </div>
+          ${this._error ? R`<p class="error">${this._error}</p>` : B}
+          ${t ? R`<p class="empty">No member chore lists found.</p>` : R`
+                  <div class="chips" role="tablist" aria-label="Members">
+                    ${this._members.map((e) => R`
+                        <button
+                          type="button"
+                          class="chip ${e.entityId === this._selectedEntity ? "active" : ""}"
+                          role="tab"
+                          aria-selected=${e.entityId === this._selectedEntity}
+                          @click=${() => this._select(e.entityId)}
+                        >
+                          ${e.label}
+                        </button>
+                      `)}
+                  </div>
+                `}
+          ${this._loading && this._items.length === 0 && !t ? R`<p class="muted">Loading…</p>` : B}
+          ${!t && !this._loading && this._items.length === 0 && !this._error ? R`<p class="empty">Nothing due for this member.</p>` : B}
+          ${this._items.length > 0 ? R`
+                  <ul>
+                    ${this._items.map((e) => {
+			let t = e.uid, n = Te(e.due);
+			return R`
+                        <li>
+                          <button
+                            type="button"
+                            class="big ${this._busyUid === t ? "busy" : ""}"
+                            @click=${() => void this._complete(t)}
+                          >
+                            <span class="summary">${e.summary ?? "Chore"}</span>
+                            ${n ? R`<span class="due">${n}</span>` : B}
+                          </button>
+                        </li>
+                      `;
+		})}
+                  </ul>
+                ` : B}
+        </div>
+      </ha-card>
+    `;
+	}
+};
+customElements.get("chore-tracker-kiosk-card") || customElements.define("chore-tracker-kiosk-card", Me);
+//#endregion
+//#region src/leaderboard-editor.ts
+var Ne = [
+	{
+		value: "week",
+		label: "This week"
+	},
+	{
+		value: "month",
+		label: "This month"
+	},
+	{
+		value: "all_time",
+		label: "All time"
+	}
+], Pe = class extends Y {
+	static properties = {
+		hass: { attribute: !1 },
+		_config: { state: !0 }
+	};
+	static styles = s`
+    .row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--secondary-text-color, #5c5c5c);
+    }
+
+    input,
+    select {
+      font: inherit;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--divider-color, #c8c8c8);
+      background: var(--card-background-color, #fff);
+      color: var(--primary-text-color, #212121);
+    }
+  `;
+	setConfig(e) {
+		this._config = { ...e };
+	}
+	_update(e) {
+		if (!this._config) return;
+		let t = {
+			...this._config,
+			...e
+		};
+		this._config = t, Q(this, "config-changed", { config: t });
 	}
 	_onTitleInput(e) {
 		let t = e.target.value.trim();
@@ -599,7 +1388,7 @@ var Z = "\n  :host {\n    display: block;\n  }\n\n  ha-card {\n    display: bloc
       <div class="row">
         <label for="period">Period</label>
         <select id="period" .value=${e} @change=${this._onPeriodChange}>
-          ${_e.map((t) => R`
+          ${Ne.map((t) => R`
               <option value=${t.value} ?selected=${t.value === e}>
                 ${t.label}
               </option>
@@ -609,20 +1398,20 @@ var Z = "\n  :host {\n    display: block;\n  }\n\n  ha-card {\n    display: bloc
     `;
 	}
 };
-customElements.get("chore-tracker-leaderboard-card-editor") || customElements.define("chore-tracker-leaderboard-card-editor", ve);
+customElements.get("chore-tracker-leaderboard-card-editor") || customElements.define("chore-tracker-leaderboard-card-editor", Pe);
 //#endregion
 //#region src/leaderboard-card.ts
-var ye = {
+var Fe = {
 	week: "This week",
 	month: "This month",
 	all_time: "All time"
-}, Q = class extends Y {
+}, Ie = class extends Y {
 	static properties = {
 		hass: { attribute: !1 },
 		_config: { state: !0 }
 	};
 	static styles = s`
-    ${o(Z)}
+    ${o($)}
 
     .period {
       display: inline-block;
@@ -685,7 +1474,7 @@ var ye = {
       <ha-card>
         <div class="content">
           <h2>${e}</h2>
-          <span class="period">${ye[t]}</span>
+          <span class="period">${Fe[t]}</span>
           <p class="empty">
             Leaderboard needs household stats (issue #29). No rankings yet.
           </p>
@@ -697,10 +1486,10 @@ var ye = {
 		return 2;
 	}
 };
-customElements.get("chore-tracker-leaderboard-card") || customElements.define("chore-tracker-leaderboard-card", Q);
+customElements.get("chore-tracker-leaderboard-card") || customElements.define("chore-tracker-leaderboard-card", Ie);
 //#endregion
 //#region src/member-list-editor.ts
-var be = class extends Y {
+var Le = class extends Y {
 	static properties = {
 		hass: { attribute: !1 },
 		_config: { state: !0 }
@@ -736,7 +1525,7 @@ var be = class extends Y {
 			...this._config,
 			...e
 		};
-		this._config = t, X(this, "config-changed", { config: t });
+		this._config = t, Q(this, "config-changed", { config: t });
 	}
 	_onEntityPicker(e) {
 		let t = e.detail?.value;
@@ -785,10 +1574,10 @@ var be = class extends Y {
     ` : B;
 	}
 };
-customElements.get("chore-tracker-member-list-card-editor") || customElements.define("chore-tracker-member-list-card-editor", be);
+customElements.get("chore-tracker-member-list-card-editor") || customElements.define("chore-tracker-member-list-card-editor", Le);
 //#endregion
 //#region src/member-list-card.ts
-var xe = 500, Se = "chore_tracker", Ce = class extends Y {
+var Re = 500, ze = "chore_tracker", Be = class extends Y {
 	static properties = {
 		hass: { attribute: !1 },
 		_config: { state: !0 },
@@ -808,7 +1597,7 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		super(), this._items = [], this._loading = !1, this._assigneeId = "";
 	}
 	static styles = s`
-    ${o(Z)}
+    ${o($)}
 
     .header {
       display: flex;
@@ -1017,7 +1806,7 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 				uid: e,
 				summary: t
 			}, this._assigneeId = "";
-		}, xe);
+		}, Re);
 	}
 	_onPointerUp() {
 		this._clearPressTimer();
@@ -1064,7 +1853,7 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		}
 		this._error = void 0;
 		try {
-			await n.callService(Se, e, t), await this._loadItems();
+			await n.callService(ze, e, t), await this._loadItems();
 		} catch (t) {
 			this._error = t instanceof Error ? t.message : `Failed to ${e}`;
 		} finally {
@@ -1174,16 +1963,16 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		return Math.min(6, Math.max(2, 1 + Math.ceil(e / 2)));
 	}
 };
-customElements.get("chore-tracker-member-list-card") || customElements.define("chore-tracker-member-list-card", Ce);
+customElements.get("chore-tracker-member-list-card") || customElements.define("chore-tracker-member-list-card", Be);
 //#endregion
 //#region src/stub-card.ts
-var $ = class extends Y {
+var Ve = class extends Y {
 	static properties = {
 		hass: { attribute: !1 },
 		_config: { state: !0 }
 	};
 	static styles = s`
-    ${o(Z)}
+    ${o($)}
   `;
 	setConfig(e) {
 		if (!e || typeof e != "object") throw Error("Invalid chore-tracker-stub-card config");
@@ -1203,7 +1992,7 @@ var $ = class extends Y {
 		return 1;
 	}
 };
-customElements.get("chore-tracker-stub-card") || customElements.define("chore-tracker-stub-card", $), e({
+customElements.get("chore-tracker-stub-card") || customElements.define("chore-tracker-stub-card", Ve), e({
 	type: "chore-tracker-stub-card",
 	name: "Chore Tracker Stub",
 	description: "Placeholder confirming the Lovelace card build pipeline.",
@@ -1214,10 +2003,20 @@ customElements.get("chore-tracker-stub-card") || customElements.define("chore-tr
 	description: "Tap to complete chores from a member or household todo list.",
 	preview: !0
 }), e({
+	type: "chore-tracker-freshness-card",
+	name: "Chore Tracker Freshness",
+	description: "Tody-style freshness bars by room or chore; tap to complete.",
+	preview: !0
+}), e({
+	type: "chore-tracker-kiosk-card",
+	name: "Chore Tracker Kiosk",
+	description: "Wall-tablet member switcher with large complete buttons.",
+	preview: !0
+}), e({
 	type: "chore-tracker-leaderboard-card",
 	name: "Chore Tracker Leaderboard",
 	description: "Fairness / points shell. Rankings arrive with household stats.",
 	preview: !0
 });
 //#endregion
-export { Q as ChoreTrackerLeaderboardCard, Ce as ChoreTrackerMemberListCard, $ as ChoreTrackerStubCard, e as registerCustomCard };
+export { Ae as ChoreTrackerFreshnessCard, Me as ChoreTrackerKioskCard, Ie as ChoreTrackerLeaderboardCard, Be as ChoreTrackerMemberListCard, Ve as ChoreTrackerStubCard, e as registerCustomCard };
