@@ -78,9 +78,7 @@ def _member_todo_entity_id(
 ) -> str | None:
     """Resolve a member todo entity_id from the entity registry."""
     registry = er.async_get(hass)
-    return registry.async_get_entity_id(
-        "todo", DOMAIN, f"{entry_id}_todo_{member_id}"
-    )
+    return registry.async_get_entity_id("todo", DOMAIN, f"{entry_id}_todo_{member_id}")
 
 
 def _household_todo_entity_id(hass: HomeAssistant, entry_id: str) -> str:
@@ -401,6 +399,4 @@ async def async_create_starter_dashboard(
     status: DashboardStatus = "updated" if existed else "created"
     msg = f"Starter dashboard {status} at /{url_path}"
     LOGGER.info(msg)
-    return _result(
-        url_path=url_path, view_paths=view_paths, status=status, message=msg
-    )
+    return _result(url_path=url_path, view_paths=view_paths, status=status, message=msg)
