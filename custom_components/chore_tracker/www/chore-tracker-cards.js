@@ -1030,39 +1030,45 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 			this._longPressFired = !1;
 			return;
 		}
-		this._complete(e);
+		this._busyUid === void 0 && this._complete(e);
+	}
+	_beginBusy(e) {
+		return this._busyUid === void 0 && (this._busyUid = e, !0);
 	}
 	async _complete(e) {
-		await this._callService("complete", { occurrence_id: e }, e), this._action = void 0;
+		this._beginBusy(e) && (await this._callService("complete", { occurrence_id: e }), this._action = void 0);
 	}
 	async _skip(e) {
-		await this._callService("skip", { occurrence_id: e }, e), this._action = void 0;
+		this._beginBusy(e) && (await this._callService("skip", { occurrence_id: e }), this._action = void 0);
 	}
 	async _snooze(e) {
+		if (!this._beginBusy(e)) return;
 		let t = new Date(Date.now() + 864e5).toISOString();
 		await this._callService("snooze", {
 			occurrence_id: e,
 			snooze_until: t
-		}, e), this._action = void 0;
+		}), this._action = void 0;
 	}
 	async _assign(e) {
 		let t = this._assigneeId.trim();
-		t && (await this._callService("assign", {
+		t && this._beginBusy(e) && (await this._callService("assign", {
 			occurrence_id: e,
 			assignee_id: t
-		}, e), this._action = void 0);
+		}), this._action = void 0);
 	}
-	async _callService(e, t, n) {
-		let r = this.hass;
-		if (r) {
-			this._busyUid = n, this._error = void 0;
-			try {
-				await r.callService(Se, e, t), await this._loadItems();
-			} catch (t) {
-				this._error = t instanceof Error ? t.message : `Failed to ${e}`;
-			} finally {
-				this._busyUid = void 0;
-			}
+	async _callService(e, t) {
+		let n = this.hass;
+		if (!n) {
+			this._busyUid = void 0;
+			return;
+		}
+		this._error = void 0;
+		try {
+			await n.callService(Se, e, t), await this._loadItems();
+		} catch (t) {
+			this._error = t instanceof Error ? t.message : `Failed to ${e}`;
+		} finally {
+			this._busyUid = void 0;
 		}
 	}
 	_formatDue(e) {
