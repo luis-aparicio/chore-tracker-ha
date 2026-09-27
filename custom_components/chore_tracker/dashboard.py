@@ -238,12 +238,11 @@ async def _async_ensure_dashboard_panel(
     """Create the storage dashboard registry entry and panel when missing."""
     coll = _get_core_dashboards_collection(hass)
     if coll is None:
-        LOGGER.warning(
-            "Starter dashboard: core dashboards collection unreachable, "
-            "using fallback instance"
+        msg = (
+            "Starter dashboard unavailable: core Lovelace dashboards collection "
+            "is not reachable (is Lovelace set up?)"
         )
-        coll = DashboardsCollection(hass)
-        await coll.async_load()
+        raise RuntimeError(msg)
 
     item = next(
         (i for i in coll.async_items() if i.get("url_path") == url_path),
@@ -263,6 +262,9 @@ async def _async_ensure_dashboard_panel(
     if url_path in lovelace.dashboards:
         return
 
+    # Core's CHANGE_ADDED listener normally registers LovelaceStorage + panel.
+    # If the item already existed in the collection but not in lovelace.dashboards
+    # (rare), register the storage handle so async_save can proceed.
     lovelace.dashboards[url_path] = LovelaceStorage(hass, item)
     if (
         frontend is not None
@@ -302,7 +304,7 @@ def _preflight_result(
         msg = "Starter dashboard skipped: Home Assistant is in recovery mode"
         LOGGER.warning(msg)
         return None, _result(
-            url_path=url_path, view_paths=view_paths, status="failed", message=msg
+            url_path=url_path, view_paths=view_paths, status="skipped", message=msg
         )
 
     lovelace = _lovelace_data(hass)

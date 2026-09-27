@@ -296,6 +296,40 @@ async def test_yaml_mode_dashboard_skipped(
     assert "YAML-mode" in result["message"]
 
 
+async def test_create_fails_when_collection_unreachable(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Refuse to create when core's DashboardsCollection cannot be reached."""
+    entry = setup_integration
+    _register_member_todos(hass, entry)
+    lovelace = _FakeLovelaceData()
+
+    with (
+        patch(
+            "custom_components.chore_tracker.dashboard._lovelace_data",
+            return_value=lovelace,
+        ),
+        patch(
+            "custom_components.chore_tracker.dashboard._get_core_dashboards_collection",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.chore_tracker.dashboard.LovelaceYAML",
+            _FakeYamlDashboard,
+        ),
+    ):
+        result = await async_create_starter_dashboard(
+            hass,
+            entry.runtime_data,
+            entry_id=entry.entry_id,
+            force=False,
+        )
+
+    assert result[RESULT_STATUS] == "failed"
+    assert "dashboards collection" in result["message"]
+
+
 async def test_service_create_starter_dashboard(
     hass: HomeAssistant,
     setup_integration: MockConfigEntry,
