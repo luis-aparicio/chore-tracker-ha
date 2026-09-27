@@ -562,7 +562,7 @@ var $ = class extends Q {
 };
 //#endregion
 //#region src/index.ts
-customElements.define("chore-tracker-stub-card", $), e({
+customElements.get("chore-tracker-stub-card") || customElements.define("chore-tracker-stub-card", $), e({
 	type: "chore-tracker-stub-card",
 	name: "Chore Tracker Stub",
 	description: "Placeholder confirming the Lovelace card build pipeline.",

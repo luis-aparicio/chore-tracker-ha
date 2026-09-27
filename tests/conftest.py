@@ -183,14 +183,7 @@ def mock_http(hass: HomeAssistant) -> Generator[MagicMock]:
     """Provide a mock HTTP component so frontend static-path registration works."""
     http = MagicMock()
     http.async_register_static_paths = AsyncMock()
-    with (
-        patch.object(hass, "http", http),
-        patch(
-            "custom_components.chore_tracker.frontend.async_get_integration",
-            new_callable=AsyncMock,
-            return_value=MagicMock(version="0.4.0"),
-        ),
-    ):
+    with patch.object(hass, "http", http):
         yield http
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,11 +19,20 @@ from custom_components.chore_tracker.const import (
 )
 from custom_components.chore_tracker.frontend import (
     _async_register_lovelace_resource,
+    _card_digest,
     async_setup_frontend,
     async_unload_frontend,
     card_resource_url,
 )
 from tests.conftest import HOUSEHOLD, MOCK_TOKEN, MOCK_URL
+
+WWW_CARD = (
+    Path(__file__).resolve().parents[1]
+    / "custom_components"
+    / "chore_tracker"
+    / "www"
+    / CARD_FILENAME
+)
 
 
 class _FakeStorageResources:
@@ -71,10 +81,11 @@ async def test_setup_frontend_registers_once(
     hass: HomeAssistant,
     mock_http: MagicMock,
 ) -> None:
-    """Static path + resource registration run once, then are skipped."""
+    """Static path registers once; resource URL uses the bundle content hash."""
     with patch(
         "custom_components.chore_tracker.frontend._async_register_lovelace_resource",
         new_callable=AsyncMock,
+        return_value=True,
     ) as mock_register_resource:
         await async_setup_frontend(hass)
         await async_setup_frontend(hass)
@@ -83,9 +94,9 @@ async def test_setup_frontend_registers_once(
         configs = mock_http.async_register_static_paths.await_args.args[0]
         assert len(configs) == 1
         assert configs[0].url_path == URL_BASE
-        mock_register_resource.assert_awaited_once_with(
-            hass, card_resource_url("0.4.0")
-        )
+        expected = card_resource_url(_card_digest(WWW_CARD))
+        assert len(mock_register_resource.await_args_list) > 1
+        mock_register_resource.assert_awaited_with(hass, expected)
         assert hass.data[FRONTEND_SETUP_KEY] is True
 
 
@@ -98,6 +109,7 @@ async def test_setup_frontend_idempotent_across_entries(
     with patch(
         "custom_components.chore_tracker.frontend._async_register_lovelace_resource",
         new_callable=AsyncMock,
+        return_value=True,
     ) as mock_register_resource:
         entry_a = MockConfigEntry(
             domain=DOMAIN,
@@ -120,14 +132,35 @@ async def test_setup_frontend_idempotent_across_entries(
         await hass.async_block_till_done()
 
         mock_http.async_register_static_paths.assert_awaited_once()
-        mock_register_resource.assert_awaited_once()
+        assert len(mock_register_resource.await_args_list) > 1
         assert hass.data[FRONTEND_SETUP_KEY] is True
+
+
+async def test_setup_frontend_missing_bundle_skips_registration(
+    hass: HomeAssistant,
+    mock_http: MagicMock,
+) -> None:
+    """Missing www bundle does not register a static path or resource."""
+    with (
+        patch.object(
+            hass, "async_add_executor_job", new_callable=AsyncMock, return_value=False
+        ),
+        patch(
+            "custom_components.chore_tracker.frontend._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+        ) as mock_register_resource,
+    ):
+        await async_setup_frontend(hass)
+
+    mock_http.async_register_static_paths.assert_not_awaited()
+    mock_register_resource.assert_not_awaited()
+    assert FRONTEND_SETUP_KEY not in hass.data
 
 
 async def test_register_resource_storage_mode_creates_and_updates(
     hass: HomeAssistant,
 ) -> None:
-    """Storage-mode resources are created once and updated on version change."""
+    """Storage-mode resources are created once and updated on digest change."""
     resources = _FakeStorageResources()
     hass.data["lovelace"] = {"resources": resources}
 
@@ -135,15 +168,15 @@ async def test_register_resource_storage_mode_creates_and_updates(
         "custom_components.chore_tracker.frontend._is_storage_collection",
         return_value=True,
     ):
-        url_v1 = card_resource_url("0.4.0")
-        await _async_register_lovelace_resource(hass, url_v1)
+        url_v1 = card_resource_url("abcd1234")
+        assert await _async_register_lovelace_resource(hass, url_v1) is True
         items = resources.async_items()
         assert len(items) == 1
         assert items[0]["url"] == url_v1
         assert items[0]["type"] == "module"
 
-        url_v2 = card_resource_url("0.4.1")
-        await _async_register_lovelace_resource(hass, url_v2)
+        url_v2 = card_resource_url("efgh5678")
+        assert await _async_register_lovelace_resource(hass, url_v2) is True
         items = resources.async_items()
         assert len(items) == 1
         assert items[0]["url"] == url_v2
@@ -160,21 +193,18 @@ async def test_register_resource_yaml_mode_logs_warning(
         "custom_components.chore_tracker.frontend._is_storage_collection",
         return_value=False,
     ):
-        await _async_register_lovelace_resource(hass, card_resource_url("0.4.0"))
+        assert (
+            await _async_register_lovelace_resource(hass, card_resource_url("abcd1234"))
+            is False
+        )
 
     assert "YAML mode" in caplog.text
     assert CARD_FILENAME in caplog.text
 
 
-async def test_unload_frontend_clears_flag_when_last_entry(
-    hass: HomeAssistant,
-) -> None:
-    """Unload clears the setup flag only when no entries remain in hass.data."""
+async def test_unload_frontend_keeps_setup_flag(hass: HomeAssistant) -> None:
+    """Unload must not clear the static-path flag (paths are not unregisterable)."""
     hass.data[FRONTEND_SETUP_KEY] = True
-    hass.data[DOMAIN] = {"entry": object()}
-    await async_unload_frontend(hass)
-    assert FRONTEND_SETUP_KEY in hass.data
-
     hass.data[DOMAIN] = {}
     await async_unload_frontend(hass)
-    assert FRONTEND_SETUP_KEY not in hass.data
+    assert hass.data[FRONTEND_SETUP_KEY] is True
