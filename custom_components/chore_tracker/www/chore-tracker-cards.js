@@ -1009,6 +1009,9 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 	_clearPressTimer() {
 		this._pressTimer !== void 0 && (clearTimeout(this._pressTimer), this._pressTimer = void 0);
 	}
+	disconnectedCallback() {
+		this._clearPressTimer(), super.disconnectedCallback();
+	}
 	_onPointerDown(e, t) {
 		this._longPressFired = !1, this._pressUid = e, this._clearPressTimer(), this._pressTimer = setTimeout(() => {
 			this._longPressFired = !0, this._action = {
@@ -1017,18 +1020,21 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 			}, this._assigneeId = "";
 		}, xe);
 	}
-	_onPointerUp(e) {
-		if (this._clearPressTimer(), this._longPressFired || this._pressUid !== e) {
-			this._pressUid = void 0;
-			return;
-		}
-		this._pressUid = void 0, this._complete(e);
+	_onPointerUp() {
+		this._clearPressTimer(), this._pressUid = void 0;
 	}
 	_onPointerCancel() {
 		this._clearPressTimer(), this._pressUid = void 0;
 	}
+	_onClick(e) {
+		if (this._longPressFired) {
+			this._longPressFired = !1;
+			return;
+		}
+		this._complete(e);
+	}
 	async _complete(e) {
-		await this._callService("complete", { occurrence_id: e }, e);
+		await this._callService("complete", { occurrence_id: e }, e), this._action = void 0;
 	}
 	async _skip(e) {
 		await this._callService("skip", { occurrence_id: e }, e), this._action = void 0;
@@ -1109,9 +1115,10 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
           class="complete"
           aria-label=${`Complete ${n}`}
           @pointerdown=${() => this._onPointerDown(t, n)}
-          @pointerup=${() => this._onPointerUp(t)}
+          @pointerup=${() => this._onPointerUp()}
           @pointerleave=${() => this._onPointerCancel()}
           @pointercancel=${() => this._onPointerCancel()}
+          @click=${() => this._onClick(t)}
           @contextmenu=${(e) => {
 			e.preventDefault(), this._longPressFired = !0, this._clearPressTimer(), this._action = {
 				uid: t,
