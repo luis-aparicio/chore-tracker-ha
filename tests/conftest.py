@@ -140,6 +140,15 @@ def _configure_client(client: MagicMock) -> MagicMock:
     client.async_complete_occurrence = AsyncMock(
         return_value={"occurrence": {"id": "occ_alex_1", "state": "completed"}}
     )
+    client.async_skip_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "state": "skipped"}}
+    )
+    client.async_snooze_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "state": "snoozed"}}
+    )
+    client.async_reassign_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "assigneeId": "mem_sam"}}
+    )
     client.async_create_chore = AsyncMock(
         return_value={"id": "chore_new", "title": "New chore"}
     )

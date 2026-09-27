@@ -31,6 +31,11 @@ After setup, the integration creates one household device and these entities:
 | `todo.<member>_chores` | One list per household member. Items are that member’s actionable occurrences (`pending` / `snoozed`). |
 | `todo.household_chores` | All actionable occurrences for the household (assigned and open). |
 | `calendar.chores` | Read-only calendar of upcoming occurrences (`uid` = occurrence id). |
+| `sensor.<member>_due_today` | Count of that member’s actionable chores due on the household-local calendar day (`state_class: measurement`). |
+| `sensor.<member>_overdue` | Count of that member’s actionable overdue chores (`state_class: measurement`). |
+| `binary_sensor.household_overdue` | On when any actionable occurrence (any assignee or open) is overdue. |
+
+Points, streak, and weekly effort sensors are deferred until the server stats API (#29).
 
 ### To-do behaviour
 
@@ -39,8 +44,7 @@ After setup, the integration creates one household device and these entities:
 - **Create** an item → `POST /api/v1/chores` as a one-off chore:
   - Member list → fixed assignment to that member
   - Household list → open assignment
-- **Delete** and **uncomplete** are not supported (raise an error). Skip / snooze /
-  undo stay on the Chore Tracker UI or later HA services.
+- **Delete** and **uncomplete** are not supported (raise an error).
 
 Assist can use Home Assistant’s built-in to-do intents against these lists.
 
@@ -52,6 +56,27 @@ uses an admin API token (as Supervisor discovery does).
 - `calendar.chores` is read-only (no create / update / delete).
 - Events use the occurrence due time (all-day when the server stores a date-only due).
 - Queries outside the coordinator’s default due window fetch that range from the API.
+
+## Services
+
+| Service | API |
+|---|---|
+| `chore_tracker.complete` | `POST /api/v1/occurrences/:id/complete` |
+| `chore_tracker.skip` | `POST /api/v1/occurrences/:id/skip` |
+| `chore_tracker.snooze` | `POST /api/v1/occurrences/:id/snooze` (`snooze_until`) |
+| `chore_tracker.assign` | `POST /api/v1/occurrences/:id/reassign` (`assignee_id`) |
+
+All services require `occurrence_id`. Optional `config_entry_id` when more than one
+entry is loaded. After a successful call the coordinator refreshes.
+
+## Events
+
+| Event | When |
+|---|---|
+| `chore_tracker_completed` | Server WebSocket reports a `completed` domain event |
+| `chore_tracker_overdue` | An actionable occurrence newly becomes overdue (edge-detect on coordinator data; not fired for items already overdue at startup) |
+
+Payloads include occurrence / chore ids and related fields for automations.
 
 ## Supervisor discovery
 

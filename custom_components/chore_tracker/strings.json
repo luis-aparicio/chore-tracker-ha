@@ -30,5 +30,75 @@
       "cannot_connect": "Could not reach the discovered Chore Tracker server.",
       "unknown": "Unexpected error during discovery."
     }
+  },
+  "services": {
+    "complete": {
+      "name": "Complete chore",
+      "description": "Mark an occurrence complete.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id to complete."
+        },
+        "completed_for_member_id": {
+          "name": "Completed for member",
+          "description": "Optional member id when completing on behalf of someone else (admin token)."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
+    "skip": {
+      "name": "Skip chore",
+      "description": "Skip an occurrence.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id to skip."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
+    "snooze": {
+      "name": "Snooze chore",
+      "description": "Snooze an occurrence until a new due time.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id to snooze."
+        },
+        "snooze_until": {
+          "name": "Snooze until",
+          "description": "New due time (ISO date or datetime)."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
+    "assign": {
+      "name": "Assign chore",
+      "description": "Reassign an occurrence to a household member.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id to reassign."
+        },
+        "assignee_id": {
+          "name": "Assignee",
+          "description": "Member id to assign the occurrence to."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    }
   }
 }

@@ -13,7 +13,22 @@ from .api import (
     ChoreTrackerAuthError,
     ChoreTrackerConnectionError,
 )
-from .const import DEFAULT_POLL_INTERVAL_SECONDS, DOMAIN, LOGGER
+from .const import (
+    DEFAULT_POLL_INTERVAL_SECONDS,
+    DOMAIN,
+    DOMAIN_EVENT_COMPLETED,
+    EVENT_COMPLETED,
+    EVENT_OVERDUE,
+    LOGGER,
+)
+from .helpers import (
+    assignee_id,
+    chore_title,
+    is_actionable,
+    is_overdue,
+    occurrence_row,
+    parse_due_at,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -41,6 +56,8 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=DEFAULT_POLL_INTERVAL_SECONDS),
         )
         self.client = client
+        self._known_overdue_ids: set[str] = set()
+        self._overdue_seeded = False
 
     async def async_start_listener(self) -> None:
         """Start the WebSocket listener after the first successful refresh."""
@@ -74,10 +91,97 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "last_error": self.client.last_error,
         }
 
-    async def _async_on_ws_message(self, _payload: dict[str, Any]) -> None:
-        """Handle a domain event by requesting a full REST refresh."""
+    def async_set_updated_data(self, data: dict[str, Any]) -> None:
+        """Set new data and run overdue edge detection."""
+        self._detect_overdue_edges(data)
+        super().async_set_updated_data(data)
+
+    async def _async_on_ws_message(self, payload: dict[str, Any]) -> None:
+        """Handle a domain event: fire HA bus events, then refresh."""
+        self._fire_domain_bus_events(payload)
         await self.async_request_refresh()
 
     async def _async_on_ready_truncated(self) -> None:
         """Force a full REST refresh when the server reports truncated replay."""
         await self.async_request_refresh()
+
+    def _fire_domain_bus_events(self, payload: dict[str, Any]) -> None:
+        """Map server WebSocket domain events onto the Home Assistant bus."""
+        if payload.get("type") != "event":
+            return
+        event = payload.get("event")
+        if not isinstance(event, dict):
+            return
+        event_type = event.get("type")
+        if event_type != DOMAIN_EVENT_COMPLETED:
+            return
+        self.hass.bus.async_fire(
+            EVENT_COMPLETED,
+            {
+                "event_id": event.get("id"),
+                "household_id": event.get("householdId"),
+                "occurrence_id": event.get("occurrenceId"),
+                "chore_id": event.get("choreId"),
+                "actor_id": event.get("actorId"),
+                "payload": event.get("payload") or {},
+                "created_at": event.get("createdAt"),
+                "config_entry_id": self.config_entry.entry_id
+                if self.config_entry
+                else None,
+            },
+        )
+
+    def _detect_overdue_edges(self, data: dict[str, Any]) -> None:
+        """Fire chore_tracker_overdue when an occurrence newly becomes overdue."""
+        household = data.get("household") or {}
+        timezone = household.get("timezone") if isinstance(household, dict) else None
+        tz_name = timezone if isinstance(timezone, str) else None
+        occurrences = data.get("occurrences") or []
+        if not isinstance(occurrences, list):
+            occurrences = []
+
+        current_overdue: set[str] = set()
+        newly_overdue: list[dict[str, Any]] = []
+
+        for row in occurrences:
+            if not isinstance(row, dict) or not is_actionable(row):
+                continue
+            occurrence = occurrence_row(row)
+            if occurrence is None:
+                continue
+            occ_id = occurrence.get("id")
+            if not isinstance(occ_id, str) or not occ_id:
+                continue
+            due = parse_due_at(occurrence.get("dueAt"))
+            if not is_overdue(due, tz_name):
+                continue
+            current_overdue.add(occ_id)
+            if self._overdue_seeded and occ_id not in self._known_overdue_ids:
+                newly_overdue.append(row)
+
+        if not self._overdue_seeded:
+            # Seed without firing so existing overdue items do not spam on startup.
+            self._known_overdue_ids = current_overdue
+            self._overdue_seeded = True
+            return
+
+        for row in newly_overdue:
+            occurrence = occurrence_row(row)
+            if occurrence is None:
+                continue
+            self.hass.bus.async_fire(
+                EVENT_OVERDUE,
+                {
+                    "occurrence_id": occurrence.get("id"),
+                    "chore_id": occurrence.get("choreId"),
+                    "chore_title": chore_title(row),
+                    "assignee_id": assignee_id(row),
+                    "due_at": occurrence.get("dueAt"),
+                    "household_id": occurrence.get("householdId"),
+                    "config_entry_id": self.config_entry.entry_id
+                    if self.config_entry
+                    else None,
+                },
+            )
+
+        self._known_overdue_ids = current_overdue
