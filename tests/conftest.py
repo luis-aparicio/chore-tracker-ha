@@ -32,23 +32,117 @@ HOUSEHOLD = {
     "createdAt": "2026-01-01T00:00:00.000Z",
 }
 
-OCCURRENCES: list[dict[str, Any]] = []
+MEMBERS: list[dict[str, Any]] = [
+    {
+        "id": "mem_alex",
+        "householdId": HOUSEHOLD["id"],
+        "displayName": "Alex",
+        "role": "admin",
+        "colour": "#112233",
+        "avatar": None,
+        "haUserId": None,
+        "username": "alex",
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "invitePending": False,
+        "inviteExpiresAt": None,
+    },
+    {
+        "id": "mem_sam",
+        "householdId": HOUSEHOLD["id"],
+        "displayName": "Sam",
+        "role": "member",
+        "colour": "#445566",
+        "avatar": None,
+        "haUserId": None,
+        "username": None,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "invitePending": False,
+        "inviteExpiresAt": None,
+    },
+]
+
+OCCURRENCES: list[dict[str, Any]] = [
+    {
+        "occurrence": {
+            "id": "occ_alex_1",
+            "householdId": HOUSEHOLD["id"],
+            "choreId": "chore_1",
+            "assigneeId": "mem_alex",
+            "dueAt": "2026-09-28T12:00:00.000Z",
+            "state": "pending",
+            "createdAt": "2026-01-01T00:00:00.000Z",
+        },
+        "chore": {
+            "id": "chore_1",
+            "householdId": HOUSEHOLD["id"],
+            "title": "Take out trash",
+            "requiresApproval": False,
+        },
+        "assignee": {"id": "mem_alex", "displayName": "Alex"},
+    },
+    {
+        "occurrence": {
+            "id": "occ_open_1",
+            "householdId": HOUSEHOLD["id"],
+            "choreId": "chore_2",
+            "assigneeId": None,
+            "dueAt": "2026-09-29",
+            "state": "pending",
+            "createdAt": "2026-01-01T00:00:00.000Z",
+        },
+        "chore": {
+            "id": "chore_2",
+            "householdId": HOUSEHOLD["id"],
+            "title": "Water plants",
+            "requiresApproval": False,
+        },
+        "assignee": None,
+    },
+    {
+        "occurrence": {
+            "id": "occ_done_1",
+            "householdId": HOUSEHOLD["id"],
+            "choreId": "chore_3",
+            "assigneeId": "mem_sam",
+            "dueAt": "2026-09-27T09:00:00.000Z",
+            "state": "completed",
+            "createdAt": "2026-01-01T00:00:00.000Z",
+        },
+        "chore": {
+            "id": "chore_3",
+            "householdId": HOUSEHOLD["id"],
+            "title": "Done chore",
+            "requiresApproval": False,
+        },
+        "assignee": {"id": "mem_sam", "displayName": "Sam"},
+    },
+]
 
 MOCK_URL = "http://816670ef-chore-tracker:8080"
 MOCK_TOKEN = "ct_test_token_secret"
 
 
+def _snapshot() -> dict[str, Any]:
+    return {
+        "household": HOUSEHOLD,
+        "members": MEMBERS,
+        "occurrences": OCCURRENCES,
+        "fetched_at": "2026-01-01T00:00:00+00:00",
+    }
+
+
 def _configure_client(client: MagicMock) -> MagicMock:
     """Attach default async behavior to a mocked API client instance."""
     client.async_get_household = AsyncMock(return_value=HOUSEHOLD)
-    client.async_get_snapshot = AsyncMock(
-        return_value={
-            "household": HOUSEHOLD,
-            "occurrences": OCCURRENCES,
-            "fetched_at": "2026-01-01T00:00:00+00:00",
-        }
-    )
+    client.async_get_members = AsyncMock(return_value=MEMBERS)
+    client.async_get_snapshot = AsyncMock(return_value=_snapshot())
     client.async_get_occurrences = AsyncMock(return_value=OCCURRENCES)
+    client.async_complete_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "state": "completed"}}
+    )
+    client.async_create_chore = AsyncMock(
+        return_value={"id": "chore_new", "title": "New chore"}
+    )
     client.start_ws_listener = MagicMock()
     client.async_stop_ws_listener = AsyncMock()
     client.ws_connected = False

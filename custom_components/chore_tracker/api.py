@@ -85,30 +85,59 @@ class ChoreTrackerApiClient:
         """GET /api/v1/household — validates the token and returns household."""
         return await self._request("GET", "/api/v1/household")
 
+    async def async_get_members(self) -> list[dict[str, Any]]:
+        """GET /api/v1/members."""
+        data = await self._request("GET", "/api/v1/members")
+        if not isinstance(data, list):
+            msg = "Unexpected members response"
+            raise ChoreTrackerApiError(msg)
+        return data
+
     async def async_get_occurrences(
         self,
         *,
         lookback_days: int = OCCURRENCE_LOOKBACK_DAYS,
         lookahead_days: int = OCCURRENCE_LOOKAHEAD_DAYS,
+        from_iso: str | None = None,
+        to_iso: str | None = None,
     ) -> list[dict[str, Any]]:
-        """GET /api/v1/occurrences for a narrow due window."""
-        now = datetime.now(tz=UTC)
-        params = {
-            "from": (now - timedelta(days=lookback_days)).isoformat(),
-            "to": (now + timedelta(days=lookahead_days)).isoformat(),
-        }
+        """GET /api/v1/occurrences for a due window."""
+        if from_iso is None or to_iso is None:
+            now = datetime.now(tz=UTC)
+            from_iso = (now - timedelta(days=lookback_days)).isoformat()
+            to_iso = (now + timedelta(days=lookahead_days)).isoformat()
+        params = {"from": from_iso, "to": to_iso}
         data = await self._request("GET", "/api/v1/occurrences", params=params)
         if not isinstance(data, list):
             msg = "Unexpected occurrences response"
             raise ChoreTrackerApiError(msg)
         return data
 
+    async def async_complete_occurrence(
+        self,
+        occurrence_id: str,
+        *,
+        body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/complete."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/complete",
+            json_data=body if body is not None else {},
+        )
+
+    async def async_create_chore(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/chores."""
+        return await self._request("POST", "/api/v1/chores", json_data=payload)
+
     async def async_get_snapshot(self) -> dict[str, Any]:
-        """Fetch household + occurrences for the coordinator."""
+        """Fetch household + members + occurrences for the coordinator."""
         household = await self.async_get_household()
+        members = await self.async_get_members()
         occurrences = await self.async_get_occurrences()
         return {
             "household": household,
+            "members": members,
             "occurrences": occurrences,
             "fetched_at": datetime.now(tz=UTC).isoformat(),
         }
@@ -239,6 +268,7 @@ class ChoreTrackerApiClient:
         path: str,
         *,
         params: dict[str, str] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> Any:
         """Perform an authenticated REST request."""
         url = f"{self._url}{path}"
@@ -249,6 +279,7 @@ class ChoreTrackerApiClient:
                     url,
                     headers=self._headers(),
                     params=params,
+                    json=json_data,
                 ) as response:
                     if response.status in (401, 403):
                         msg = "Invalid API token"
