@@ -8,10 +8,12 @@ from typing import Any
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_when_setup_or_start
 
 from .const import (
     CARD_FILENAME,
     DOMAIN,
+    FRONTEND_RESOURCE_RETRY_KEY,
     FRONTEND_SETUP_KEY,
     LOGGER,
     URL_BASE,
@@ -105,6 +107,26 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, url: str) -> bo
     return True
 
 
+def _schedule_resource_retry(hass: HomeAssistant, url: str) -> None:
+    """Retry registration once when Lovelace becomes available (or at HA start)."""
+    if hass.data.get(FRONTEND_RESOURCE_RETRY_KEY):
+        return
+    hass.data[FRONTEND_RESOURCE_RETRY_KEY] = True
+
+    async def _retry(hass_: HomeAssistant, _component: str) -> None:
+        if await _async_register_lovelace_resource(hass_, url):
+            LOGGER.debug("Deferred Lovelace card resource registration succeeded")
+            return
+        if _lovelace_resources(hass_) is None:
+            LOGGER.debug(
+                "Lovelace resources still unavailable after deferred retry for %s",
+                url,
+            )
+
+    async_when_setup_or_start(hass, "lovelace", _retry)
+    LOGGER.debug("Scheduled deferred Lovelace card resource registration")
+
+
 async def async_setup_frontend(hass: HomeAssistant) -> None:
     """Serve ``www/`` once and keep the Lovelace module resource current."""
     www_dir = Path(__file__).parent / "www"
@@ -127,7 +149,14 @@ async def async_setup_frontend(hass: HomeAssistant) -> None:
 
     digest = await hass.async_add_executor_job(_card_digest, card_path)
     url = card_resource_url(digest)
-    await _async_register_lovelace_resource(hass, url)
+    if await _async_register_lovelace_resource(hass, url):
+        return
+
+    # Permanent skip (YAML mode) already logged a warning.
+    if _lovelace_resources(hass) is not None:
+        return
+
+    _schedule_resource_retry(hass, url)
 
 
 async def async_unload_frontend(hass: HomeAssistant) -> None:

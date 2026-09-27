@@ -1,6 +1,7 @@
 {
   "domain": "chore_tracker",
   "name": "Chore Tracker",
+  "after_dependencies": ["http", "lovelace"],
   "codeowners": ["@luis-aparicio"],
   "config_flow": true,
   "documentation": "https://github.com/luis-aparicio/chore-tracker-ha",

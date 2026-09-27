@@ -14,6 +14,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.chore_tracker.const import (
     CARD_FILENAME,
     DOMAIN,
+    FRONTEND_RESOURCE_RETRY_KEY,
     FRONTEND_SETUP_KEY,
     URL_BASE,
 )
@@ -208,3 +209,71 @@ async def test_unload_frontend_keeps_setup_flag(hass: HomeAssistant) -> None:
     hass.data[DOMAIN] = {}
     await async_unload_frontend(hass)
     assert hass.data[FRONTEND_SETUP_KEY] is True
+
+
+async def test_setup_frontend_defers_when_lovelace_not_ready(
+    hass: HomeAssistant,
+    mock_http: MagicMock,
+) -> None:
+    """When Lovelace resources are missing, schedule a once-only deferred retry."""
+    scheduled: list[Any] = []
+
+    def _capture_when_setup(
+        hass_: HomeAssistant, component: str, callback: Any
+    ) -> None:
+        assert component == "lovelace"
+        scheduled.append(callback)
+
+    with (
+        patch(
+            "custom_components.chore_tracker.frontend._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+            return_value=False,
+        ) as mock_register,
+        patch(
+            "custom_components.chore_tracker.frontend._lovelace_resources",
+            return_value=None,
+        ),
+        patch(
+            "custom_components.chore_tracker.frontend.async_when_setup_or_start",
+            side_effect=_capture_when_setup,
+        ),
+    ):
+        await async_setup_frontend(hass)
+
+        assert mock_register.await_count == 1
+        assert hass.data[FRONTEND_RESOURCE_RETRY_KEY] is True
+        assert len(scheduled) == 1
+
+        await scheduled[0](hass, "lovelace")
+        after_retry = len(mock_register.await_args_list)
+        assert after_retry > 1
+
+        await async_setup_frontend(hass)
+        assert len(scheduled) == 1
+        assert len(mock_register.await_args_list) > after_retry
+
+
+async def test_setup_frontend_does_not_defer_for_yaml_mode(
+    hass: HomeAssistant,
+    mock_http: MagicMock,
+) -> None:
+    """YAML-mode (resources present, non-storage) must not schedule a retry."""
+    with (
+        patch(
+            "custom_components.chore_tracker.frontend._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "custom_components.chore_tracker.frontend._lovelace_resources",
+            return_value=_YamlResources(),
+        ),
+        patch(
+            "custom_components.chore_tracker.frontend.async_when_setup_or_start",
+        ) as mock_when,
+    ):
+        await async_setup_frontend(hass)
+
+    mock_when.assert_not_called()
+    assert FRONTEND_RESOURCE_RETRY_KEY not in hass.data
