@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import SOURCE_USER
 from homeassistant.const import CONF_TOKEN, CONF_URL
@@ -15,7 +15,7 @@ from custom_components.chore_tracker.api import (
     ChoreTrackerAuthError,
     ChoreTrackerConnectionError,
 )
-from custom_components.chore_tracker.const import DOMAIN
+from custom_components.chore_tracker.const import ATTR_FORCE, DOMAIN
 from tests.conftest import HOUSEHOLD, MOCK_TOKEN, MOCK_URL
 
 
@@ -145,3 +145,35 @@ async def test_hassio_flow_updates_existing(
     assert result["reason"] == "already_configured"
     assert entry.data[CONF_URL] == MOCK_URL
     assert entry.data[CONF_TOKEN] == MOCK_TOKEN
+
+
+async def test_options_flow_generate_dashboard(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Options flow calls the starter dashboard helper and aborts with status."""
+    entry = setup_integration
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+    with patch(
+        "custom_components.chore_tracker.config_flow.async_create_starter_dashboard",
+        new_callable=AsyncMock,
+        return_value={
+            "url_path": "chore-tracker",
+            "status": "created",
+            "view_paths": ["managing", "alex"],
+            "message": "Created starter dashboard at /chore-tracker",
+        },
+    ) as mock_create:
+        result2 = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={ATTR_FORCE: False},
+        )
+
+    mock_create.assert_awaited_once()
+    assert result2["type"] is FlowResultType.ABORT
+    assert result2["reason"] == "dashboard_created"
+    assert result2["description_placeholders"]["url_path"] == "chore-tracker"

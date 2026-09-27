@@ -1,11 +1,17 @@
-"""Domain services for Chore Tracker occurrence actions."""
+"""Domain services for Chore Tracker occurrence actions and starter dashboard."""
 
 from __future__ import annotations
 
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
@@ -14,15 +20,18 @@ from .const import (
     ATTR_ASSIGNEE_ID,
     ATTR_COMPLETED_FOR_MEMBER_ID,
     ATTR_CONFIG_ENTRY_ID,
+    ATTR_FORCE,
     ATTR_OCCURRENCE_ID,
     ATTR_SNOOZE_UNTIL,
     DOMAIN,
     SERVICE_ASSIGN,
     SERVICE_COMPLETE,
+    SERVICE_CREATE_STARTER_DASHBOARD,
     SERVICE_SKIP,
     SERVICE_SNOOZE,
 )
 from .coordinator import ChoreTrackerCoordinator
+from .dashboard import RESULT_STATUS, async_create_starter_dashboard
 
 SERVICE_COMPLETE_SCHEMA = vol.Schema(
     {
@@ -55,6 +64,13 @@ SERVICE_ASSIGN_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_CREATE_STARTER_DASHBOARD_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Optional(ATTR_FORCE, default=False): cv.boolean,
+    }
+)
+
 
 def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> ChoreTrackerCoordinator:
     """Resolve the coordinator for a service call."""
@@ -78,6 +94,18 @@ def _get_coordinator(hass: HomeAssistant, call: ServiceCall) -> ChoreTrackerCoor
         "Multiple Chore Tracker entries are configured; "
         "pass config_entry_id to select one"
     )
+    raise ServiceValidationError(msg)
+
+
+def _coordinator_entry_id(
+    hass: HomeAssistant, coordinator: ChoreTrackerCoordinator
+) -> str:
+    """Return the config entry id for a loaded coordinator."""
+    entries: dict[str, ChoreTrackerCoordinator] = hass.data.get(DOMAIN, {})
+    for entry_id, loaded in entries.items():
+        if loaded is coordinator:
+            return entry_id
+    msg = "Chore Tracker config entry id not found"
     raise ServiceValidationError(msg)
 
 
@@ -139,6 +167,24 @@ async def _handle_assign(call: ServiceCall) -> None:
     await coordinator.async_request_refresh()
 
 
+async def _handle_create_starter_dashboard(call: ServiceCall) -> ServiceResponse:
+    """Create or refresh the optional starter Lovelace dashboard."""
+    coordinator = _get_coordinator(call.hass, call)
+    entry_id = call.data.get(ATTR_CONFIG_ENTRY_ID) or _coordinator_entry_id(
+        call.hass, coordinator
+    )
+    force = bool(call.data.get(ATTR_FORCE, False))
+    result = await async_create_starter_dashboard(
+        call.hass,
+        coordinator,
+        entry_id=entry_id,
+        force=force,
+    )
+    if result.get(RESULT_STATUS) == "failed":
+        raise HomeAssistantError(str(result.get("message") or "Dashboard failed"))
+    return result
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register domain services once."""
@@ -169,6 +215,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
         _handle_assign,
         schema=SERVICE_ASSIGN_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CREATE_STARTER_DASHBOARD,
+        _handle_create_starter_dashboard,
+        schema=SERVICE_CREATE_STARTER_DASHBOARD_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
 
 @callback
@@ -181,6 +234,7 @@ def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_SKIP,
         SERVICE_SNOOZE,
         SERVICE_ASSIGN,
+        SERVICE_CREATE_STARTER_DASHBOARD,
     ):
         if hass.services.has_service(DOMAIN, service_name):
             hass.services.async_remove(DOMAIN, service_name)

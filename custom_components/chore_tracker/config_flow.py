@@ -5,8 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
@@ -17,12 +24,24 @@ from .api import (
     ChoreTrackerConnectionError,
     normalize_url,
 )
-from .const import DEFAULT_NAME, DOMAIN, LOGGER
+from .const import ATTR_FORCE, DEFAULT_NAME, DOMAIN, LOGGER
+from .dashboard import (
+    RESULT_MESSAGE,
+    RESULT_STATUS,
+    RESULT_URL_PATH,
+    async_create_starter_dashboard,
+)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_URL): str,
         vol.Required(CONF_TOKEN): str,
+    }
+)
+
+STEP_OPTIONS_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_FORCE, default=False): bool,
     }
 )
 
@@ -142,3 +161,59 @@ class ChoreTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             msg = "Invalid household response"
             raise ChoreTrackerApiError(msg)
         return household
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(_config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the options flow for generating a starter dashboard."""
+        return ChoreTrackerOptionsFlow()
+
+
+class ChoreTrackerOptionsFlow(OptionsFlow):
+    """Optional starter dashboard generator (never runs on initial setup)."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Offer to generate the starter Lovelace dashboard."""
+        if user_input is not None:
+            coordinator = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id)
+            if coordinator is None:
+                return self.async_abort(reason="not_loaded")
+
+            force = bool(user_input.get(ATTR_FORCE, False))
+            result = await async_create_starter_dashboard(
+                self.hass,
+                coordinator,
+                entry_id=self.config_entry.entry_id,
+                force=force,
+            )
+            status = result.get(RESULT_STATUS)
+            placeholders = {
+                "url_path": str(result.get(RESULT_URL_PATH) or ""),
+                "message": str(result.get(RESULT_MESSAGE) or ""),
+            }
+            if status == "created":
+                return self.async_abort(
+                    reason="dashboard_created",
+                    description_placeholders=placeholders,
+                )
+            if status == "updated":
+                return self.async_abort(
+                    reason="dashboard_updated",
+                    description_placeholders=placeholders,
+                )
+            if status == "skipped":
+                return self.async_abort(
+                    reason="dashboard_skipped",
+                    description_placeholders=placeholders,
+                )
+            return self.async_abort(
+                reason="dashboard_failed",
+                description_placeholders=placeholders,
+            )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=STEP_OPTIONS_SCHEMA,
+        )

@@ -38,3 +38,11 @@ assign:
       selector:
         text:
     config_entry_id: *config_entry_id
+create_starter_dashboard:
+  fields:
+    config_entry_id: *config_entry_id
+    force:
+      required: false
+      default: false
+      selector:
+        boolean:
