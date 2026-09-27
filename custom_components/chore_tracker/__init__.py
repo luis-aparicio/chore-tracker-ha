@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_TOKEN, CONF_URL
+from homeassistant.const import CONF_TOKEN, CONF_URL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -13,7 +13,7 @@ from .coordinator import ChoreTrackerCoordinator
 
 type ChoreTrackerConfigEntry = ConfigEntry[ChoreTrackerCoordinator]
 
-# No entity platforms in this scaffold (#21). Later Phase 4 adds todo/sensor/calendar.
+PLATFORMS: list[Platform] = [Platform.TODO, Platform.CALENDAR]
 
 
 async def async_setup_entry(
@@ -37,6 +37,8 @@ async def async_setup_entry(
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     return True
 
 
@@ -44,7 +46,9 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ChoreTrackerConfigEntry
 ) -> bool:
     """Unload a config entry."""
-    coordinator = entry.runtime_data
-    await coordinator.async_shutdown()
-    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        coordinator = entry.runtime_data
+        await coordinator.async_shutdown()
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    return unload_ok

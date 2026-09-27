@@ -3,9 +3,6 @@
 Custom integration (`chore_tracker`) that connects Home Assistant to a
 [Chore Tracker](https://github.com/luis-aparicio/chore-tracker) server.
 
-This scaffold (#21) ships config flow, API client, WebSocket-backed coordinator,
-and diagnostics. Entity platforms (todo / sensor / calendar) come later.
-
 ## Install (HACS custom repository)
 
 1. HACS → Integrations → Custom repositories.
@@ -24,6 +21,37 @@ and diagnostics. Entity platforms (todo / sensor / calendar) come later.
 3. The integration validates with `GET /api/v1/household` and stores `{ url, token }`.
 
 An invalid token fails the flow with an auth error and does not create an entry.
+
+## Entities
+
+After setup, the integration creates one household device and these entities:
+
+| Entity | Role |
+|---|---|
+| `todo.<member>_chores` | One list per household member. Items are that member’s actionable occurrences (`pending` / `snoozed`). |
+| `todo.household_chores` | All actionable occurrences for the household (assigned and open). |
+| `calendar.chores` | Read-only calendar of upcoming occurrences (`uid` = occurrence id). |
+
+### To-do behaviour
+
+- **Complete** an item in HA’s to-do UI (or via `todo.update_item`) →
+  `POST /api/v1/occurrences/:id/complete`.
+- **Create** an item → `POST /api/v1/chores` as a one-off chore:
+  - Member list → fixed assignment to that member
+  - Household list → open assignment
+- **Delete** and **uncomplete** are not supported (raise an error). Skip / snooze /
+  undo stay on the Chore Tracker UI or later HA services.
+
+Assist can use Home Assistant’s built-in to-do intents against these lists.
+
+`requires_approval` chores still appear and can be completed when the config entry
+uses an admin API token (as Supervisor discovery does).
+
+### Calendar behaviour
+
+- `calendar.chores` is read-only (no create / update / delete).
+- Events use the occurrence due time (all-day when the server stores a date-only due).
+- Queries outside the coordinator’s default due window fetch that range from the API.
 
 ## Supervisor discovery
 

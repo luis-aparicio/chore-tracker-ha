@@ -112,6 +112,7 @@ async def test_coordinator_poll_and_ws_refresh(hass: HomeAssistant) -> None:
     client.async_get_snapshot = AsyncMock(
         return_value={
             "household": {"id": "hh1", "name": "H"},
+            "members": [{"id": "m1", "displayName": "Alex"}],
             "occurrences": [{"occurrence": {"id": "o1"}}],
             "fetched_at": "2026-01-01T00:00:00+00:00",
         }
@@ -134,6 +135,7 @@ async def test_coordinator_poll_and_ws_refresh(hass: HomeAssistant) -> None:
     assert data["ws_connected"] is True
     assert data["last_event_id"] == "evt_9"
     assert len(data["occurrences"]) == 1
+    assert len(data["members"]) == 1
 
     with patch.object(
         coordinator,
