@@ -597,15 +597,22 @@ function Te(e) {
 		return e;
 	}
 }
-async function Ee(e, t) {
-	await e.callService(we, "complete", { occurrence_id: t });
+async function Ee(e, t, n) {
+	let r = { occurrence_id: t };
+	n?.configEntryId && (r.config_entry_id = n.configEntryId), n?.completedForMemberId && (r.completed_for_member_id = n.completedForMemberId), await e.callService(we, "complete", r);
 }
 async function De(e, t) {
-	if (typeof e.callWS != "function") return [];
+	if (typeof e.callWS != "function") return {
+		rows: [],
+		configEntryId: t ?? null
+	};
 	let n = { type: "chore_tracker/freshness" };
 	t && (n.config_entry_id = t);
 	let r = await e.callWS(n);
-	return Array.isArray(r?.rows) ? r.rows : [];
+	return {
+		rows: Array.isArray(r?.rows) ? r.rows : [],
+		configEntryId: (typeof r?.config_entry_id == "string" ? r.config_entry_id : null) ?? t ?? null
+	};
 }
 //#endregion
 //#region src/types.ts
@@ -725,7 +732,8 @@ var Ae = class extends Y {
 		_rows: { state: !0 },
 		_loading: { state: !0 },
 		_error: { state: !0 },
-		_busyId: { state: !0 }
+		_busyId: { state: !0 },
+		_resolvedEntryId: { state: !0 }
 	};
 	_lastTodoSignature;
 	_fetchGeneration = 0;
@@ -909,7 +917,7 @@ var Ae = class extends Y {
 		try {
 			let n = await De(e, this._config?.config_entry_id);
 			if (t !== this._fetchGeneration) return;
-			this._rows = n;
+			this._rows = n.rows, this._resolvedEntryId = n.configEntryId ?? void 0;
 		} catch (e) {
 			if (t !== this._fetchGeneration) return;
 			this._error = e instanceof Error ? e.message : "Failed to load freshness", this._rows = [];
@@ -925,7 +933,7 @@ var Ae = class extends Y {
 		if (t && this._beginBusy(e.occurrenceId)) {
 			this._error = void 0;
 			try {
-				await Ee(t, e.occurrenceId), await this._load();
+				await Ee(t, e.occurrenceId, { configEntryId: this._config?.config_entry_id ?? this._resolvedEntryId }), await this._load();
 			} catch (e) {
 				this._error = e instanceof Error ? e.message : "Failed to complete";
 			} finally {
@@ -1248,7 +1256,7 @@ var Me = class extends Y {
 		if (t && this._beginBusy(e)) {
 			this._error = void 0;
 			try {
-				await Ee(t, e), await this._loadItems();
+				await Ee(t, e, { configEntryId: this._config?.config_entry_id }), await this._loadItems();
 			} catch (e) {
 				this._error = e instanceof Error ? e.message : "Failed to complete";
 			} finally {
