@@ -178,6 +178,15 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Enable custom integrations for all tests."""
 
 
+@pytest.fixture(autouse=True)
+def mock_http(hass: HomeAssistant) -> Generator[MagicMock]:
+    """Provide a mock HTTP component so frontend static-path registration works."""
+    http = MagicMock()
+    http.async_register_static_paths = AsyncMock()
+    with patch.object(hass, "http", http):
+        yield http
+
+
 @pytest.fixture
 def mock_api() -> Generator[MagicMock]:
     """Patch the API client used by config flow and setup."""
