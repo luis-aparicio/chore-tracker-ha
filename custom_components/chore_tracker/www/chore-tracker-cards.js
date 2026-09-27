@@ -800,7 +800,6 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		_assigneeId: { state: !0 }
 	};
 	_pressTimer;
-	_pressUid;
 	_longPressFired = !1;
 	_lastEntity;
 	_lastState;
@@ -1013,7 +1012,7 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		this._clearPressTimer(), super.disconnectedCallback();
 	}
 	_onPointerDown(e, t) {
-		this._longPressFired = !1, this._pressUid = e, this._clearPressTimer(), this._pressTimer = setTimeout(() => {
+		this._longPressFired = !1, this._clearPressTimer(), this._pressTimer = setTimeout(() => {
 			this._longPressFired = !0, this._action = {
 				uid: e,
 				summary: t
@@ -1021,10 +1020,10 @@ var xe = 500, Se = "chore_tracker", Ce = class extends Y {
 		}, xe);
 	}
 	_onPointerUp() {
-		this._clearPressTimer(), this._pressUid = void 0;
+		this._clearPressTimer();
 	}
 	_onPointerCancel() {
-		this._clearPressTimer(), this._pressUid = void 0;
+		this._clearPressTimer();
 	}
 	_onClick(e) {
 		if (this._longPressFired) {
