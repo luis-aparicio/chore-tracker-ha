@@ -26,8 +26,13 @@ type: module
 ```
 
 Card source lives in the monorepo (`packages/ha-cards`); releases copy the built
-bundle into this repo’s `www/` folder. The stub card type is
-`chore-tracker-stub-card` (real cards land in later releases).
+bundle into this repo’s `www/` folder. Card types:
+
+| Type | Role |
+|---|---|
+| `chore-tracker-member-list-card` | Checklist from a `todo.*_chores` entity; tap to complete, long-press for skip / snooze / assign |
+| `chore-tracker-leaderboard-card` | Period shell (week / month / all-time); rankings wait on household stats (#29) |
+| `chore-tracker-stub-card` | Pipeline smoke card (optional on dashboards) |
 
 ## Manual setup
 
