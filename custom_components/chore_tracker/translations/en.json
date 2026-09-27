@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Chore Tracker",
+        "description": "Enter the Chore Tracker server URL and an API token (ct_…). On Home Assistant OS use the app hostname, for example http://816670ef-chore-tracker:8080 — not the ingress path.",
+        "data": {
+          "url": "Server URL",
+          "token": "API token"
+        },
+        "data_description": {
+          "url": "Base URL including scheme and port (no trailing slash required).",
+          "token": "Household API token from Settings → API tokens."
+        }
+      },
+      "hassio_confirm": {
+        "title": "Chore Tracker discovered",
+        "description": "Supervisor discovered Chore Tracker at {url} ({name}). Confirm to finish setup."
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API token.",
+      "cannot_connect": "Unable to connect to the Chore Tracker server.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This household is already configured.",
+      "invalid_discovery_info": "Discovery payload was incomplete.",
+      "invalid_auth": "Discovery token was rejected.",
+      "cannot_connect": "Could not reach the discovered Chore Tracker server.",
+      "unknown": "Unexpected error during discovery."
+    }
+  }
+}

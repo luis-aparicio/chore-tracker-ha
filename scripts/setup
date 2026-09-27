@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")/.."
+python3 -m pip install -r requirements_common.txt
+python3 -m pip install -r requirements_test.txt
+python3 -m pip install -r requirements_lint.txt

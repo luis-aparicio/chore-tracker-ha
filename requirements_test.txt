@@ -1,0 +1,4 @@
+# Install development requirements
+-r requirements_common.txt
+-r requirements_lint.txt
+pytest-homeassistant-custom-component==0.13.367
