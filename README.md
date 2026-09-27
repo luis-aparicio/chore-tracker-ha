@@ -3,12 +3,19 @@
 Custom integration (`chore_tracker`) that connects Home Assistant to a
 [Chore Tracker](https://github.com/luis-aparicio/chore-tracker) server.
 
-## Install (HACS custom repository)
+## Install
+
+**Primary path today:** HACS custom repository (default-store inclusion is
+pending a human PR to [`hacs/default`](https://github.com/hacs/default); see
+[`docs/hacs-default-submission.md`](docs/hacs-default-submission.md)).
 
 1. HACS → Integrations → Custom repositories.
 2. Add `https://github.com/luis-aparicio/chore-tracker-ha` as category **Integration**.
 3. Download **Chore Tracker**, then restart Home Assistant Core if prompted.
 4. Settings → Devices & services → Add integration → **Chore Tracker**.
+
+Releases are published as GitHub Releases (`v*`, starting at **v0.5.0**). HACS
+installs from those releases.
 
 ## Lovelace cards
 
