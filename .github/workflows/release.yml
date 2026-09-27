@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; skipping."
+            exit 0
+          fi
+          notes_file="$(mktemp)"
+          if [[ -f CHANGELOG.md ]]; then
+            # Prefer the matching CHANGELOG section when present (tag or bare version).
+            version="${tag#v}"
+            awk -v tag="$tag" -v ver="$version" '
+              $0 ~ "^## \\[" tag "\\]" || $0 ~ "^## \\[" ver "\\]" || $0 ~ "^## " tag || $0 ~ "^## " ver {grab=1; next}
+              grab && $0 ~ /^## / {exit}
+              grab {print}
+            ' CHANGELOG.md >"$notes_file"
+          fi
+          if [[ -s "$notes_file" ]]; then
+            gh release create "$tag" \
+              --title "$tag" \
+              --notes-file "$notes_file" \
+              --verify-tag
+          else
+            gh release create "$tag" \
+              --title "$tag" \
+              --generate-notes \
+              --verify-tag
+          fi
