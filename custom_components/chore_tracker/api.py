@@ -255,7 +255,7 @@ class ChoreTrackerApiClient:
                         raise ChoreTrackerAuthError(msg)
                     response.raise_for_status()
                     return await response.json()
-        except ChoreTrackerAuthError, ChoreTrackerApiError:
+        except (ChoreTrackerAuthError, ChoreTrackerApiError):
             raise
         except TimeoutError as err:
             msg = f"Timeout talking to Chore Tracker: {err}"
