@@ -90,11 +90,13 @@ async def _handle_complete(call: ServiceCall) -> None:
     if completed_for is not None:
         body["completedForMemberId"] = completed_for
     try:
-        await coordinator.client.async_complete_occurrence(
+        result = await coordinator.client.async_complete_occurrence(
             occurrence_id, body=body or None
         )
     except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
         raise HomeAssistantError(str(err)) from err
+    if isinstance(result, dict):
+        coordinator.fire_completed_from_action(result)
     await coordinator.async_request_refresh()
 
 

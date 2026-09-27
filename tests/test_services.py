@@ -27,6 +27,13 @@ async def test_services_call_api(
     coordinator = setup_integration.runtime_data
     client = coordinator.client
 
+    events: list[Event] = []
+
+    def _capture(event: Event) -> None:
+        events.append(event)
+
+    hass.bus.async_listen(EVENT_COMPLETED, _capture)
+
     await hass.services.async_call(
         DOMAIN,
         SERVICE_COMPLETE,
@@ -36,6 +43,9 @@ async def test_services_call_api(
     client.async_complete_occurrence.assert_awaited_with(
         "occ_alex_1", body={"completedForMemberId": "mem_sam"}
     )
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    assert events[0].data["occurrence_id"] == "occ_alex_1"
 
     await hass.services.async_call(
         DOMAIN,

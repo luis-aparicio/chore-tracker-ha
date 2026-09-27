@@ -58,6 +58,7 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self._known_overdue_ids: set[str] = set()
         self._overdue_seeded = False
+        self._fired_completed_ids: set[str] = set()
 
     async def async_start_listener(self) -> None:
         """Start the WebSocket listener after the first successful refresh."""
@@ -80,7 +81,11 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except (ChoreTrackerConnectionError, ChoreTrackerApiError) as err:
             raise UpdateFailed(err) from err
 
-        return self._enrich(snapshot)
+        data = self._enrich(snapshot)
+        # Poll/refresh sets self.data directly and does not call
+        # async_set_updated_data — detect overdue edges here too.
+        self._detect_overdue_edges(data)
+        return data
 
     def _enrich(self, snapshot: dict[str, Any]) -> dict[str, Any]:
         """Attach connection diagnostics to coordinator data."""
@@ -105,6 +110,12 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Force a full REST refresh when the server reports truncated replay."""
         await self.async_request_refresh()
 
+    def fire_completed_from_action(self, result: dict[str, Any]) -> None:
+        """Fire chore_tracker_completed from a complete API response (deduped)."""
+        event = result.get("event")
+        if isinstance(event, dict):
+            self._fire_completed_event(event)
+
     def _fire_domain_bus_events(self, payload: dict[str, Any]) -> None:
         """Map server WebSocket domain events onto the Home Assistant bus."""
         if payload.get("type") != "event":
@@ -112,9 +123,22 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         event = payload.get("event")
         if not isinstance(event, dict):
             return
-        event_type = event.get("type")
-        if event_type != DOMAIN_EVENT_COMPLETED:
+        if event.get("type") != DOMAIN_EVENT_COMPLETED:
             return
+        self._fire_completed_event(event)
+
+    def _fire_completed_event(self, event: dict[str, Any]) -> None:
+        """Fire chore_tracker_completed once per domain event id."""
+        event_id = event.get("id")
+        if isinstance(event_id, str) and event_id:
+            if event_id in self._fired_completed_ids:
+                return
+            self._fired_completed_ids.add(event_id)
+            if len(self._fired_completed_ids) > 200:  # noqa: PLR2004 — dedupe bound
+                # Bound memory; keep recent half.
+                keep = list(self._fired_completed_ids)[-100:]
+                self._fired_completed_ids = set(keep)
+
         self.hass.bus.async_fire(
             EVENT_COMPLETED,
             {

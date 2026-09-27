@@ -73,7 +73,7 @@ entry is loaded. After a successful call the coordinator refreshes.
 
 | Event | When |
 |---|---|
-| `chore_tracker_completed` | Server WebSocket reports a `completed` domain event |
+| `chore_tracker_completed` | After a successful complete (API response) and/or when the WebSocket reports a `completed` domain event (deduped by event id) |
 | `chore_tracker_overdue` | An actionable occurrence newly becomes overdue (edge-detect on coordinator data; not fired for items already overdue at startup) |
 
 Payloads include occurrence / chore ids and related fields for automations.

@@ -185,9 +185,11 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
             msg = "Missing occurrence id"
             raise HomeAssistantError(msg)
         try:
-            await self.coordinator.client.async_complete_occurrence(uid)
+            result = await self.coordinator.client.async_complete_occurrence(uid)
         except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
             raise HomeAssistantError(str(err)) from err
+        if isinstance(result, dict):
+            self.coordinator.fire_completed_from_action(result)
         await self.coordinator.async_request_refresh()
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:  # noqa: ARG002
