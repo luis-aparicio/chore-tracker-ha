@@ -31,6 +31,27 @@
       "unknown": "Unexpected error during discovery."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Starter dashboard",
+        "description": "Optionally create a Lovelace dashboard with a Managing view and one Doing view per household member. Uses storage-mode only. Existing dashboards at the same path are left alone unless Force overwrite is enabled.",
+        "data": {
+          "force": "Force overwrite"
+        },
+        "data_description": {
+          "force": "Replace the existing Chore Tracker starter dashboard layout. Any manual edits on that dashboard will be lost."
+        }
+      }
+    },
+    "abort": {
+      "not_loaded": "Chore Tracker is not loaded for this entry.",
+      "dashboard_created": "Created starter dashboard at /{url_path}.",
+      "dashboard_updated": "Refreshed starter dashboard at /{url_path}.",
+      "dashboard_skipped": "{message}",
+      "dashboard_failed": "{message}"
+    }
+  },
   "services": {
     "complete": {
       "name": "Complete chore",
@@ -97,6 +118,20 @@
         "config_entry_id": {
           "name": "Config entry",
           "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
+    "create_starter_dashboard": {
+      "name": "Create starter dashboard",
+      "description": "Create an optional Lovelace dashboard with a Managing view and one Doing view per member. Skips an existing dashboard unless force is true.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        },
+        "force": {
+          "name": "Force overwrite",
+          "description": "Replace the existing starter dashboard layout (manual edits will be lost)."
         }
       }
     }

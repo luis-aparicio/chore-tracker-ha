@@ -105,9 +105,28 @@ uses an admin API token (as Supervisor discovery does).
 | `chore_tracker.skip` | `POST /api/v1/occurrences/:id/skip` |
 | `chore_tracker.snooze` | `POST /api/v1/occurrences/:id/snooze` (`snooze_until`) |
 | `chore_tracker.assign` | `POST /api/v1/occurrences/:id/reassign` (`assignee_id`) |
+| `chore_tracker.create_starter_dashboard` | Creates an optional storage-mode Lovelace dashboard (see below) |
 
-All services require `occurrence_id`. Optional `config_entry_id` when more than one
+Occurrence services require `occurrence_id`. Optional `config_entry_id` when more than one
 entry is loaded. After a successful call the coordinator refreshes.
+
+## Starter dashboard (optional)
+
+The integration never auto-creates a Lovelace dashboard on setup. When you want a
+ChoreOps-style layout:
+
+1. Developer tools → Actions → `chore_tracker.create_starter_dashboard`, or
+2. Settings → Devices & services → Chore Tracker → Configure → generate step.
+
+That creates a **storage-mode** dashboard (sidebar path `chore-tracker`, or
+`chore-tracker-<entry>` when multiple entries are loaded) with:
+
+- **Managing** — freshness, leaderboard shell, household member-list, kiosk
+- **Doing** — one view per household member with that member’s todo list card
+
+If the path already exists, the service skips unless `force: true` (force overwrites
+the layout and drops manual edits on that dashboard). YAML-mode dashboards at the
+same path are left alone with a warning.
 
 ## Events
 

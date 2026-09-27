@@ -26,12 +26,18 @@ SERVICE_COMPLETE: Final = "complete"
 SERVICE_SKIP: Final = "skip"
 SERVICE_SNOOZE: Final = "snooze"
 SERVICE_ASSIGN: Final = "assign"
+SERVICE_CREATE_STARTER_DASHBOARD: Final = "create_starter_dashboard"
 
 ATTR_OCCURRENCE_ID: Final = "occurrence_id"
 ATTR_SNOOZE_UNTIL: Final = "snooze_until"
 ATTR_ASSIGNEE_ID: Final = "assignee_id"
 ATTR_COMPLETED_FOR_MEMBER_ID: Final = "completed_for_member_id"
 ATTR_CONFIG_ENTRY_ID: Final = "config_entry_id"
+ATTR_FORCE: Final = "force"
+
+# Optional starter Lovelace dashboard
+DASHBOARD_URL_PATH: Final = "chore-tracker"
+DASHBOARD_ICON: Final = "mdi:checkbox-marked-outline"
 
 # Home Assistant bus events
 EVENT_COMPLETED: Final = "chore_tracker_completed"
