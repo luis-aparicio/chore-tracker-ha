@@ -1,6 +1,8 @@
 # The contents of this file is based on https://github.com/home-assistant/core/blob/dev/pyproject.toml
 
-target-version = "py314"
+# py313 keeps `except (A, B)` parentheses; py314+ ruff format rewrites to bare
+# `except A, B` (PEP 758), which breaks on older Home Assistant runtimes.
+target-version = "py313"
 
 [lint]
 select = [

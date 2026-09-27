@@ -7,11 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .api import ChoreTrackerApiError, ChoreTrackerConnectionError
-from .const import OCCURRENCE_LOOKAHEAD_DAYS, OCCURRENCE_LOOKBACK_DAYS
+from .const import LOGGER, OCCURRENCE_LOOKAHEAD_DAYS, OCCURRENCE_LOOKBACK_DAYS
 from .coordinator import ChoreTrackerCoordinator
 from .entity import ChoreTrackerEntity
 from .helpers import parse_due_at
@@ -172,8 +173,11 @@ class ChoreTrackerCalendarEntity(ChoreTrackerEntity, CalendarEntity):
                     from_iso=dt_util.as_utc(start_date).isoformat(),
                     to_iso=dt_util.as_utc(end_date).isoformat(),
                 )
-            except ChoreTrackerApiError, ChoreTrackerConnectionError:
-                rows = self._occurrences
+            except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
+                LOGGER.exception(
+                    "Failed to fetch Chore Tracker occurrences for calendar range"
+                )
+                raise HomeAssistantError(str(err)) from err
 
         events: list[CalendarEvent] = []
         for row in rows:

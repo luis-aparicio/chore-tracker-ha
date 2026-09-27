@@ -76,3 +76,31 @@ async def test_calendar_fetches_outside_snapshot_window(
     client.async_get_occurrences.assert_awaited()
     assert {event.uid for event in events} == {"occ_far"}
     assert events[0].summary == "Far chore"
+
+
+async def test_calendar_out_of_window_fetch_failure_raises(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Out-of-window API failures raise HomeAssistantError, not a stale list."""
+    from unittest.mock import AsyncMock
+
+    import pytest
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.chore_tracker.api import ChoreTrackerConnectionError
+
+    component: EntityComponent = hass.data[CALENDAR_DOMAIN]
+    entity = component.get_entity("calendar.chores")
+    assert entity is not None
+    client = setup_integration.runtime_data.client
+    client.async_get_occurrences = AsyncMock(
+        side_effect=ChoreTrackerConnectionError("server unreachable")
+    )
+
+    with pytest.raises(HomeAssistantError, match="server unreachable"):
+        await entity.async_get_events(
+            hass,
+            datetime(2027, 6, 1, tzinfo=UTC),
+            datetime(2027, 6, 30, tzinfo=UTC),
+        )
