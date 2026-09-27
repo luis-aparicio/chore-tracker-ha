@@ -1238,7 +1238,7 @@ var Me = class extends Y {
 		}
 	}
 	_select(e) {
-		e !== this._selectedEntity && (this._selectedEntity = e, this._items = []);
+		e !== this._selectedEntity && (this._selectedEntity = e, this._items = [], this._lastEntity = e, this._lastState = this.hass?.states[e]?.state, this._loadItems());
 	}
 	_beginBusy(e) {
 		return this._busyUid === void 0 && (this._busyUid = e, !0);
