@@ -12,6 +12,7 @@ from .const import DOMAIN
 from .coordinator import ChoreTrackerCoordinator
 from .frontend import async_setup_frontend, async_unload_frontend
 from .services import async_setup_services, async_unload_services
+from .websocket import async_setup_websocket
 
 type ChoreTrackerConfigEntry = ConfigEntry[ChoreTrackerCoordinator]
 
@@ -45,6 +46,7 @@ async def async_setup_entry(
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     async_setup_services(hass)
+    async_setup_websocket(hass)
     await async_setup_frontend(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

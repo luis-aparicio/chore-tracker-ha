@@ -31,8 +31,24 @@ bundle into this repo’s `www/` folder. Card types:
 | Type | Role |
 |---|---|
 | `chore-tracker-member-list-card` | Checklist from a `todo.*_chores` entity; tap to complete, long-press for skip / snooze / assign |
+| `chore-tracker-freshness-card` | Tody-style freshness bars (group by room or chore); tap row to complete. Uses `chore_tracker/freshness` WebSocket data |
+| `chore-tracker-kiosk-card` | Wall-tablet member chip switcher + large-button complete list (auto-discovers member todos; no PIN) |
 | `chore-tracker-leaderboard-card` | Period shell (week / month / all-time); rankings wait on household stats (#29) |
 | `chore-tracker-stub-card` | Pipeline smoke card (optional on dashboards) |
+
+Example configs:
+
+```yaml
+type: custom:chore-tracker-freshness-card
+title: Freshness
+group_by: room   # room | chore
+horizon_days: 7
+```
+
+```yaml
+type: custom:chore-tracker-kiosk-card
+title: Kiosk
+```
 
 ## Manual setup
 
@@ -101,6 +117,14 @@ entry is loaded. After a successful call the coordinator refreshes.
 | `chore_tracker_overdue` | An actionable occurrence newly becomes overdue (edge-detect on coordinator data; not fired for items already overdue at startup) |
 
 Payloads include occurrence / chore ids and related fields for automations.
+
+## WebSocket commands
+
+| Type | Role |
+|---|---|
+| `chore_tracker/freshness` | Returns `{ rows, config_entry_id }` for freshness cards. Each row: `occurrenceId`, `choreId`, `title`, `roomId`, `roomName`, `dueAt`, `lastCompletedAt`, optional `freshnessPct` (0–100 **fresh**, from the future #33 decay engine; cards invert to dirtiness for Tody bars). Optional `config_entry_id` when more than one entry is loaded. |
+
+The coordinator snapshot also includes `rooms` alongside household, members, and occurrences.
 
 ## Supervisor discovery
 

@@ -93,6 +93,14 @@ class ChoreTrackerApiClient:
             raise ChoreTrackerApiError(msg)
         return data
 
+    async def async_get_rooms(self) -> list[dict[str, Any]]:
+        """GET /api/v1/rooms."""
+        data = await self._request("GET", "/api/v1/rooms")
+        if not isinstance(data, list):
+            msg = "Unexpected rooms response"
+            raise ChoreTrackerApiError(msg)
+        return data
+
     async def async_get_occurrences(
         self,
         *,
@@ -165,13 +173,15 @@ class ChoreTrackerApiClient:
         return await self._request("POST", "/api/v1/chores", json_data=payload)
 
     async def async_get_snapshot(self) -> dict[str, Any]:
-        """Fetch household + members + occurrences for the coordinator."""
+        """Fetch household + members + rooms + occurrences for the coordinator."""
         household = await self.async_get_household()
         members = await self.async_get_members()
+        rooms = await self.async_get_rooms()
         occurrences = await self.async_get_occurrences()
         return {
             "household": household,
             "members": members,
+            "rooms": rooms,
             "occurrences": occurrences,
             "fetched_at": datetime.now(tz=UTC).isoformat(),
         }

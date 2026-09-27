@@ -61,6 +61,25 @@ MEMBERS: list[dict[str, Any]] = [
     },
 ]
 
+ROOMS: list[dict[str, Any]] = [
+    {
+        "id": "room_kitchen",
+        "householdId": HOUSEHOLD["id"],
+        "name": "Kitchen",
+        "sortOrder": 0,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+    },
+    {
+        "id": "room_bath",
+        "householdId": HOUSEHOLD["id"],
+        "name": "Bath",
+        "sortOrder": 1,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+    },
+]
+
 OCCURRENCES: list[dict[str, Any]] = [
     {
         "occurrence": {
@@ -76,9 +95,12 @@ OCCURRENCES: list[dict[str, Any]] = [
             "id": "chore_1",
             "householdId": HOUSEHOLD["id"],
             "title": "Take out trash",
+            "roomId": "room_kitchen",
             "requiresApproval": False,
         },
         "assignee": {"id": "mem_alex", "displayName": "Alex"},
+        "room": {"id": "room_kitchen", "name": "Kitchen"},
+        "lastCompletedAt": "2026-09-20T12:00:00.000Z",
     },
     {
         "occurrence": {
@@ -94,9 +116,12 @@ OCCURRENCES: list[dict[str, Any]] = [
             "id": "chore_2",
             "householdId": HOUSEHOLD["id"],
             "title": "Water plants",
+            "roomId": None,
             "requiresApproval": False,
         },
         "assignee": None,
+        "room": None,
+        "lastCompletedAt": None,
     },
     {
         "occurrence": {
@@ -115,6 +140,8 @@ OCCURRENCES: list[dict[str, Any]] = [
             "requiresApproval": False,
         },
         "assignee": {"id": "mem_sam", "displayName": "Sam"},
+        "room": None,
+        "lastCompletedAt": "2026-09-27T09:05:00.000Z",
     },
 ]
 
@@ -126,6 +153,7 @@ def _snapshot() -> dict[str, Any]:
     return {
         "household": HOUSEHOLD,
         "members": MEMBERS,
+        "rooms": ROOMS,
         "occurrences": OCCURRENCES,
         "fetched_at": "2026-01-01T00:00:00+00:00",
     }
@@ -135,6 +163,7 @@ def _configure_client(client: MagicMock) -> MagicMock:
     """Attach default async behavior to a mocked API client instance."""
     client.async_get_household = AsyncMock(return_value=HOUSEHOLD)
     client.async_get_members = AsyncMock(return_value=MEMBERS)
+    client.async_get_rooms = AsyncMock(return_value=ROOMS)
     client.async_get_snapshot = AsyncMock(return_value=_snapshot())
     client.async_get_occurrences = AsyncMock(return_value=OCCURRENCES)
     client.async_complete_occurrence = AsyncMock(
