@@ -39,3 +39,8 @@ EVENT_OVERDUE: Final = "chore_tracker_overdue"
 
 # Domain event type from the Chore Tracker WebSocket stream
 DOMAIN_EVENT_COMPLETED: Final = "completed"
+
+# Bundled Lovelace cards (served from www/)
+CARD_FILENAME: Final = "chore-tracker-cards.js"
+URL_BASE: Final = f"/{DOMAIN}"
+FRONTEND_SETUP_KEY: Final = f"{DOMAIN}_frontend_setup"

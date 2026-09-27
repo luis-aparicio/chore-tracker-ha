@@ -10,6 +10,25 @@ Custom integration (`chore_tracker`) that connects Home Assistant to a
 3. Download **Chore Tracker**, then restart Home Assistant Core if prompted.
 4. Settings → Devices & services → Add integration → **Chore Tracker**.
 
+## Lovelace cards
+
+The integration serves a bundled ESM module from
+`/chore_tracker/chore-tracker-cards.js` and, in **storage-mode** Lovelace,
+auto-registers it as a dashboard resource. You do not need to add the resource
+by hand after installing or updating via HACS.
+
+If your Lovelace dashboards use **YAML mode**, auto-registration is skipped —
+add a module resource yourself:
+
+```yaml
+url: /chore_tracker/chore-tracker-cards.js
+type: module
+```
+
+Card source lives in the monorepo (`packages/ha-cards`); releases copy the built
+bundle into this repo’s `www/` folder. The stub card type is
+`chore-tracker-stub-card` (real cards land in later releases).
+
 ## Manual setup
 
 1. In Chore Tracker, mint an API token (Settings → API tokens). It looks like `ct_…`.

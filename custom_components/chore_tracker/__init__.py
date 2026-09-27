@@ -10,6 +10,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import ChoreTrackerApiClient
 from .const import DOMAIN
 from .coordinator import ChoreTrackerCoordinator
+from .frontend import async_setup_frontend, async_unload_frontend
 from .services import async_setup_services, async_unload_services
 
 type ChoreTrackerConfigEntry = ConfigEntry[ChoreTrackerCoordinator]
@@ -44,6 +45,7 @@ async def async_setup_entry(
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     async_setup_services(hass)
+    await async_setup_frontend(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
@@ -59,4 +61,5 @@ async def async_unload_entry(
         await coordinator.async_shutdown()
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         async_unload_services(hass)
+        await async_unload_frontend(hass)
     return unload_ok
