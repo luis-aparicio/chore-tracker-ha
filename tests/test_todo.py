@@ -136,3 +136,42 @@ async def test_todo_uncomplete_rejected(
         await entity.async_update_todo_item(
             TodoItem(uid="occ_alex_1", status=TodoItemStatus.NEEDS_ACTION)
         )
+
+
+async def test_todo_member_added_and_removed(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """New members get a todo list; removed members drop from the registry."""
+    from homeassistant.helpers import entity_registry as er
+
+    coordinator = setup_integration.runtime_data
+    data = dict(coordinator.data)
+    members = list(data["members"])
+    members.append(
+        {
+            "id": "mem_pat",
+            "householdId": "hh_test_1",
+            "displayName": "Pat",
+            "role": "member",
+            "colour": "#778899",
+            "avatar": None,
+            "haUserId": None,
+            "username": None,
+            "createdAt": "2026-01-01T00:00:00.000Z",
+            "invitePending": False,
+            "inviteExpiresAt": None,
+        }
+    )
+    data["members"] = members
+    coordinator.async_set_updated_data(data)
+    await hass.async_block_till_done()
+    assert hass.states.get("todo.pat_chores") is not None
+
+    data = dict(coordinator.data)
+    data["members"] = [m for m in members if m["id"] != "mem_pat"]
+    coordinator.async_set_updated_data(data)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    assert registry.async_get("todo.pat_chores") is None

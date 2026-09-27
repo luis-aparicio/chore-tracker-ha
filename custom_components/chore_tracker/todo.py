@@ -33,7 +33,8 @@ ACTIONABLE_STATES = frozenset({"pending", "snoozed"})
 
 _UNSUPPORTED_MSG = (
     "Chore Tracker todo lists only support completing items and creating "
-    "one-off chores. Delete and uncomplete are not supported."
+    "one-off chores. Renaming, changing due dates, delete, and uncomplete "
+    "are not supported."
 )
 
 

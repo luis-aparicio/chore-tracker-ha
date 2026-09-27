@@ -54,7 +54,7 @@ class ChoreTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except ChoreTrackerConnectionError:
                 errors["base"] = "cannot_connect"
-            except (ChoreTrackerApiError, ValueError):
+            except ChoreTrackerApiError, ValueError:
                 errors["base"] = "unknown"
             else:
                 await self.async_set_unique_id(household["id"])
@@ -81,7 +81,7 @@ class ChoreTrackerConfigFlow(ConfigFlow, domain=DOMAIN):
             port = config["port"]
             token = str(config["token"]).strip()
             url = normalize_url(f"http://{host}:{port}")
-        except (KeyError, TypeError, ValueError, ChoreTrackerConnectionError):
+        except KeyError, TypeError, ValueError, ChoreTrackerConnectionError:
             return self.async_abort(reason="invalid_discovery_info")
 
         try:

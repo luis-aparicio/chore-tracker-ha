@@ -41,3 +41,38 @@ async def test_calendar_events_in_range(
     summaries = {event.uid: event.summary for event in events}
     assert summaries["occ_alex_1"] == "Take out trash"
     assert summaries["occ_open_1"] == "Water plants"
+
+
+async def test_calendar_fetches_outside_snapshot_window(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Queries outside the coordinator window call the occurrences API."""
+    from unittest.mock import AsyncMock
+
+    component: EntityComponent = hass.data[CALENDAR_DOMAIN]
+    entity = component.get_entity("calendar.chores")
+    assert entity is not None
+    client = setup_integration.runtime_data.client
+    client.async_get_occurrences = AsyncMock(
+        return_value=[
+            {
+                "occurrence": {
+                    "id": "occ_far",
+                    "dueAt": "2027-06-15T12:00:00+00:00",
+                    "state": "pending",
+                },
+                "chore": {"title": "Far chore"},
+                "assignee": None,
+            }
+        ]
+    )
+
+    events = await entity.async_get_events(
+        hass,
+        datetime(2027, 6, 1, tzinfo=UTC),
+        datetime(2027, 6, 30, tzinfo=UTC),
+    )
+    client.async_get_occurrences.assert_awaited()
+    assert {event.uid for event in events} == {"occ_far"}
+    assert events[0].summary == "Far chore"
