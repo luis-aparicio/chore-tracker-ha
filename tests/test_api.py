@@ -32,7 +32,9 @@ async def test_get_household_bearer() -> None:
     response.status = 200
     response.raise_for_status = MagicMock()
     response.json = AsyncMock(return_value={"id": "hh1", "name": "Home"})
-    session.request = AsyncMock(return_value=response)
+    response.__aenter__ = AsyncMock(return_value=response)
+    response.__aexit__ = AsyncMock(return_value=None)
+    session.request = MagicMock(return_value=response)
 
     api = ChoreTrackerApiClient(
         url="http://host:8080",
@@ -41,7 +43,7 @@ async def test_get_household_bearer() -> None:
     )
     household = await api.async_get_household()
     assert household["id"] == "hh1"
-    session.request.assert_awaited_once()
+    session.request.assert_called_once()
     _args, kwargs = session.request.call_args
     assert kwargs["headers"]["Authorization"] == "Bearer ct_secret"
 
@@ -51,7 +53,9 @@ async def test_get_household_invalid_token() -> None:
     session = MagicMock()
     response = MagicMock()
     response.status = 401
-    session.request = AsyncMock(return_value=response)
+    response.__aenter__ = AsyncMock(return_value=response)
+    response.__aexit__ = AsyncMock(return_value=None)
+    session.request = MagicMock(return_value=response)
 
     api = ChoreTrackerApiClient(
         url="http://host:8080",

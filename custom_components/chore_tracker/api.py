@@ -244,17 +244,17 @@ class ChoreTrackerApiClient:
         url = f"{self._url}{path}"
         try:
             async with asyncio.timeout(15):
-                response = await self._session.request(
+                async with self._session.request(
                     method,
                     url,
                     headers=self._headers(),
                     params=params,
-                )
-                if response.status in (401, 403):
-                    msg = "Invalid API token"
-                    raise ChoreTrackerAuthError(msg)
-                response.raise_for_status()
-                return await response.json()
+                ) as response:
+                    if response.status in (401, 403):
+                        msg = "Invalid API token"
+                        raise ChoreTrackerAuthError(msg)
+                    response.raise_for_status()
+                    return await response.json()
         except ChoreTrackerAuthError, ChoreTrackerApiError:
             raise
         except TimeoutError as err:

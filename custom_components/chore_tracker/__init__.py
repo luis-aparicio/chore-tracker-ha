@@ -44,5 +44,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ChoreTrackerConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    coordinator = entry.runtime_data
+    await coordinator.async_shutdown()
     hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return True

@@ -15,7 +15,9 @@ async def test_setup_and_unload(
     entry = setup_integration
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data is not None
+    client = entry.runtime_data.client
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
+    client.async_stop_ws_listener.assert_awaited()
