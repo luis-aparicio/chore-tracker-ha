@@ -29,6 +29,7 @@ from .const import (
     SERVICE_CREATE_STARTER_DASHBOARD,
     SERVICE_SKIP,
     SERVICE_SNOOZE,
+    SERVICE_UNDO,
 )
 from .coordinator import ChoreTrackerCoordinator
 from .dashboard import RESULT_STATUS, async_create_starter_dashboard
@@ -42,6 +43,13 @@ SERVICE_COMPLETE_SCHEMA = vol.Schema(
 )
 
 SERVICE_SKIP_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_OCCURRENCE_ID): cv.string,
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+    }
+)
+
+SERVICE_UNDO_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_OCCURRENCE_ID): cv.string,
         vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
@@ -125,7 +133,7 @@ async def _handle_complete(call: ServiceCall) -> None:
         raise HomeAssistantError(str(err)) from err
     if isinstance(result, dict):
         coordinator.fire_completed_from_action(result)
-    await coordinator.async_request_refresh()
+    await coordinator.async_refresh_after_action()
 
 
 async def _handle_skip(call: ServiceCall) -> None:
@@ -136,7 +144,18 @@ async def _handle_skip(call: ServiceCall) -> None:
         await coordinator.client.async_skip_occurrence(occurrence_id)
     except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
         raise HomeAssistantError(str(err)) from err
-    await coordinator.async_request_refresh()
+    await coordinator.async_refresh_after_action()
+
+
+async def _handle_undo(call: ServiceCall) -> None:
+    """Undo a recent complete or skip (within the server's undo window)."""
+    coordinator = _get_coordinator(call.hass, call)
+    occurrence_id: str = call.data[ATTR_OCCURRENCE_ID]
+    try:
+        await coordinator.client.async_undo_occurrence(occurrence_id)
+    except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
+        raise HomeAssistantError(str(err)) from err
+    await coordinator.async_refresh_after_action()
 
 
 async def _handle_snooze(call: ServiceCall) -> None:
@@ -150,7 +169,7 @@ async def _handle_snooze(call: ServiceCall) -> None:
         )
     except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
         raise HomeAssistantError(str(err)) from err
-    await coordinator.async_request_refresh()
+    await coordinator.async_refresh_after_action()
 
 
 async def _handle_assign(call: ServiceCall) -> None:
@@ -164,7 +183,7 @@ async def _handle_assign(call: ServiceCall) -> None:
         )
     except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
         raise HomeAssistantError(str(err)) from err
-    await coordinator.async_request_refresh()
+    await coordinator.async_refresh_after_action()
 
 
 async def _handle_create_starter_dashboard(call: ServiceCall) -> ServiceResponse:
@@ -211,6 +230,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
+        SERVICE_UNDO,
+        _handle_undo,
+        schema=SERVICE_UNDO_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_ASSIGN,
         _handle_assign,
         schema=SERVICE_ASSIGN_SCHEMA,
@@ -234,6 +259,7 @@ def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_SKIP,
         SERVICE_SNOOZE,
         SERVICE_ASSIGN,
+        SERVICE_UNDO,
         SERVICE_CREATE_STARTER_DASHBOARD,
     ):
         if hass.services.has_service(DOMAIN, service_name):

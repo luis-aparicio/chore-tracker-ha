@@ -142,6 +142,14 @@ class ChoreTrackerApiClient:
             json_data={},
         )
 
+    async def async_undo_occurrence(self, occurrence_id: str) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/undo (server enforces the undo window)."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/undo",
+            json_data={},
+        )
+
     async def async_snooze_occurrence(
         self,
         occurrence_id: str,

@@ -103,6 +103,20 @@
         }
       }
     },
+    "undo": {
+      "name": "Undo chore",
+      "description": "Undo a recent complete or skip while the server's undo window is open.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id that was completed or skipped."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
     "assign": {
       "name": "Assign chore",
       "description": "Reassign an occurrence to a household member.",

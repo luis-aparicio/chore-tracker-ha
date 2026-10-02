@@ -29,6 +29,10 @@ snooze:
       selector:
         text:
     config_entry_id: *config_entry_id
+undo:
+  fields:
+    occurrence_id: *occurrence_id
+    config_entry_id: *config_entry_id
 assign:
   fields:
     occurrence_id: *occurrence_id

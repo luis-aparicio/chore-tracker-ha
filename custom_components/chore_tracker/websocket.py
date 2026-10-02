@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 import voluptuous as vol
@@ -15,13 +16,18 @@ from .coordinator import ChoreTrackerCoordinator
 from .helpers import (
     assignee_id,
     chore_title,
+    due_local_date,
     eligible_member_ids,
+    household_zone,
     is_actionable,
+    local_today,
     occurrence_row,
+    parse_due_at,
 )
 
 WS_TYPE_FRESHNESS = f"{DOMAIN}/freshness"
 WS_TYPE_KIOSK_ITEMS = f"{DOMAIN}/kiosk_items"
+WS_TYPE_KIOSK_LIST = f"{DOMAIN}/kiosk_list"
 ATTR_MEMBER_ID = "member_id"
 
 
@@ -246,6 +252,102 @@ def kiosk_items(
     return {"assigned": assigned, "available": available}
 
 
+def _member_view(member: dict[str, Any]) -> dict[str, Any] | None:
+    member_id = member.get("id")
+    if not isinstance(member_id, str) or not member_id:
+        return None
+    name = member.get("displayName")
+    colour = member.get("colour")
+    avatar = member.get("avatar")
+    return {
+        "id": member_id,
+        "displayName": name if isinstance(name, str) and name else member_id,
+        "colour": colour if isinstance(colour, str) else None,
+        "avatar": avatar if isinstance(avatar, str) and avatar else None,
+    }
+
+
+def _due_by_end_of_today(due_at: Any, today: date, timezone_name: str | None) -> bool:
+    due = parse_due_at(due_at)
+    if due is None:
+        return False
+    return due_local_date(due, timezone_name) <= today
+
+
+def kiosk_list(
+    data: dict[str, Any] | None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """
+    Household chores for the kiosk card, mirroring the web app's kiosk list.
+
+    Rows are actionable occurrences due by the end of today (household time) plus
+    every decay chore, which stays listed by freshness. Locked occurrences are
+    already omitted by the server list.
+    """
+    data = data or {}
+    household = data.get("household") or {}
+    timezone_name = household.get("timezone") if isinstance(household, dict) else None
+    zone = household_zone(timezone_name)
+    today = local_today(timezone_name, now=now)
+    members = [
+        view
+        for member in (data.get("members") or [])
+        if isinstance(member, dict) and (view := _member_view(member)) is not None
+    ]
+    by_id = {member["id"]: member for member in members}
+    rooms_by_id = _rooms_by_id(data)
+
+    rows: list[dict[str, Any]] = []
+    occurrences = data.get("occurrences") or []
+    for item in occurrences if isinstance(occurrences, list) else []:
+        if not isinstance(item, dict) or not is_actionable(item):
+            continue
+        occurrence = occurrence_row(item)
+        if occurrence is None:
+            continue
+        occ_id = occurrence.get("id")
+        if not isinstance(occ_id, str) or not occ_id:
+            continue
+        chore = item.get("chore") if isinstance(item.get("chore"), dict) else {}
+        schedule = (
+            chore.get("schedule") if isinstance(chore.get("schedule"), dict) else {}
+        )
+        decay = schedule.get("type") == "decay"
+        due_at = occurrence.get("dueAt")
+        if not decay and not _due_by_end_of_today(due_at, today, timezone_name):
+            continue
+        _, room_name = _resolve_room(item, chore, rooms_by_id)
+        current = assignee_id(item)
+        freshness = item.get("freshnessPct")
+        points = chore.get("points")
+        rows.append(
+            {
+                "occurrenceId": occ_id,
+                "title": chore_title(item),
+                "dueAt": due_at if isinstance(due_at, str) else None,
+                "roomName": room_name,
+                "assignee": by_id.get(current) if current else None,
+                "points": points if isinstance(points, int) else 0,
+                "freshnessPct": freshness
+                if isinstance(freshness, (int, float)) and decay
+                else None,
+                "decay": decay,
+            }
+        )
+
+    rows.sort(key=lambda row: (row["dueAt"] is None, row["dueAt"] or ""))
+    return {
+        "members": members,
+        "rows": rows,
+        "points": bool(household.get("featurePoints"))
+        if isinstance(household, dict)
+        else False,
+        "timezone": str(zone),
+    }
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register WebSocket commands (idempotent)."""
@@ -254,6 +356,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         return
     websocket_api.async_register_command(hass, websocket_freshness)
     websocket_api.async_register_command(hass, websocket_kiosk_items)
+    websocket_api.async_register_command(hass, websocket_kiosk_list)
     hass.data[key] = True
 
 
@@ -316,6 +419,36 @@ async def websocket_kiosk_items(
         msg["id"],
         {
             **result,
+            "config_entry_id": coordinator.config_entry.entry_id
+            if coordinator.config_entry
+            else None,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_KIOSK_LIST,
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+    }
+)
+@websocket_api.async_response
+async def websocket_kiosk_list(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return members and today's household chores for the kiosk card."""
+    try:
+        coordinator = _coordinator_for(hass, msg.get(ATTR_CONFIG_ENTRY_ID))
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, str(err))
+        return
+
+    connection.send_result(
+        msg["id"],
+        {
+            **kiosk_list(coordinator.data),
             "config_entry_id": coordinator.config_entry.entry_id
             if coordinator.config_entry
             else None,

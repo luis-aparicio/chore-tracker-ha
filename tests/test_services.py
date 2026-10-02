@@ -17,6 +17,7 @@ from custom_components.chore_tracker.const import (
     SERVICE_COMPLETE,
     SERVICE_SKIP,
     SERVICE_SNOOZE,
+    SERVICE_UNDO,
 )
 
 
@@ -219,3 +220,32 @@ async def test_overdue_edge_event(
     assert events[0].data["occurrence_id"] == "occ_new_late"
     assert events[0].data["chore_title"] == "Newly late"
     assert events[0].data["assignee_id"] == "mem_sam"
+
+
+async def test_undo_service_calls_api(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """chore_tracker.undo posts to the undo endpoint."""
+    client = setup_integration.runtime_data.client
+    await hass.services.async_call(
+        DOMAIN, SERVICE_UNDO, {"occurrence_id": "occ_alex_1"}, blocking=True
+    )
+    client.async_undo_occurrence.assert_awaited_with("occ_alex_1")
+
+
+async def test_actions_refresh_immediately(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Actions bypass the refresh debouncer so cards never read stale data."""
+    coordinator = setup_integration.runtime_data
+    with (
+        patch.object(coordinator, "async_refresh") as refresh,
+        patch.object(coordinator, "async_request_refresh") as debounced,
+    ):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_COMPLETE, {"occurrence_id": "occ_alex_1"}, blocking=True
+        )
+    refresh.assert_awaited_once()
+    debounced.assert_not_called()

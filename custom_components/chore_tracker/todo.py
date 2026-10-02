@@ -172,7 +172,7 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
             await self.coordinator.client.async_create_chore(payload)
         except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
             raise HomeAssistantError(str(err)) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_after_action()
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Complete an occurrence; reject uncomplete and other edits."""
@@ -193,7 +193,7 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
             raise HomeAssistantError(str(err)) from err
         if isinstance(result, dict):
             self.coordinator.fire_completed_from_action(result)
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_refresh_after_action()
 
     def _completion_body(self) -> dict[str, Any] | None:
         """Extra body for the complete call; None keeps the token-owner default."""
