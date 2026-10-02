@@ -76,7 +76,39 @@ async def test_todo_complete_calls_api(
         },
         blocking=True,
     )
-    client.async_complete_occurrence.assert_awaited_with("occ_alex_1")
+    client.async_complete_occurrence.assert_awaited_with(
+        "occ_alex_1", body={"completedForMemberId": "mem_alex"}
+    )
+
+
+async def test_todo_household_complete_has_no_member_body(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Household list completions keep the token-owner attribution."""
+    client = setup_integration.runtime_data.client
+
+    await hass.services.async_call(
+        TODO_DOMAIN,
+        TodoServices.UPDATE_ITEM,
+        {
+            ATTR_ENTITY_ID: "todo.household_chores",
+            "item": "occ_open_1",
+            "status": "completed",
+        },
+        blocking=True,
+    )
+    client.async_complete_occurrence.assert_awaited_with("occ_open_1")
+
+
+async def test_todo_member_entity_exposes_member_id(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """Member lists carry member_id; the household list does not."""
+    assert hass.states.get("todo.alex_chores").attributes["member_id"] == "mem_alex"
+    assert hass.states.get("todo.sam_chores").attributes["member_id"] == "mem_sam"
+    assert "member_id" not in hass.states.get("todo.household_chores").attributes
 
 
 async def test_todo_create_builds_one_off_payload(
