@@ -39,7 +39,7 @@ bundle into this repo’s `www/` folder. Card types:
 |---|---|
 | `chore-tracker-member-list-card` | Checklist from a `todo.*_chores` entity; tap to complete, long-press for skip / snooze / assign |
 | `chore-tracker-freshness-card` | Tody-style freshness bars (group by room or chore); tap row to complete. Uses `chore_tracker/freshness` WebSocket data |
-| `chore-tracker-kiosk-card` | Wall-tablet member chip switcher + large-button complete list (auto-discovers member todos; no PIN; completions are credited to the selected member) |
+| `chore-tracker-kiosk-card` | Wall-tablet member chip switcher + large-button complete list (auto-discovers member todos; no PIN; from the cards release that reads `member_id`, completions are credited to the selected member) |
 | `chore-tracker-leaderboard-card` | Period shell (week / month / all-time); rankings wait on household stats (#29) |
 | `chore-tracker-stub-card` | Pipeline smoke card (optional on dashboards) |
 

@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.chore_tracker.api import ChoreTrackerApiError
 from custom_components.chore_tracker.todo import (
     ChoreTrackerHouseholdTodoEntity,
     ChoreTrackerMemberTodoEntity,
@@ -98,7 +99,7 @@ async def test_todo_household_complete_has_no_member_body(
         },
         blocking=True,
     )
-    client.async_complete_occurrence.assert_awaited_with("occ_open_1")
+    client.async_complete_occurrence.assert_awaited_with("occ_open_1", body=None)
 
 
 async def test_todo_member_entity_exposes_member_id(
@@ -207,3 +208,24 @@ async def test_todo_member_added_and_removed(
 
     registry = er.async_get(hass)
     assert registry.async_get("todo.pat_chores") is None
+
+
+async def test_todo_member_complete_api_error_raises(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """A rejected member check-off surfaces as a HomeAssistantError."""
+    client = setup_integration.runtime_data.client
+    client.async_complete_occurrence.side_effect = ChoreTrackerApiError("forbidden")
+
+    with pytest.raises(HomeAssistantError, match="forbidden"):
+        await hass.services.async_call(
+            TODO_DOMAIN,
+            TodoServices.UPDATE_ITEM,
+            {
+                ATTR_ENTITY_ID: "todo.alex_chores",
+                "item": "occ_alex_1",
+                "status": "completed",
+            },
+            blocking=True,
+        )

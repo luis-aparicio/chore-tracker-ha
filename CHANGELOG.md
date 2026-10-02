@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Checking off an item on a member's `todo` list now credits that member
   (`completedForMemberId`) instead of the API token's owner. The household
-  list keeps the token-owner default.
+  list keeps the token-owner default. Points and effort follow the credited
+  member, and a check-off for a member who requires approval now lands in
+  `pending_approval` until an admin approves it.
 
 ### Added
 

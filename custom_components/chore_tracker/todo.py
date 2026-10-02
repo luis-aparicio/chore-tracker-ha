@@ -186,12 +186,9 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
             raise HomeAssistantError(msg)
         body = self._completion_body()
         try:
-            if body is None:
-                result = await self.coordinator.client.async_complete_occurrence(uid)
-            else:
-                result = await self.coordinator.client.async_complete_occurrence(
-                    uid, body=body
-                )
+            result = await self.coordinator.client.async_complete_occurrence(
+                uid, body=body
+            )
         except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
             raise HomeAssistantError(str(err)) from err
         if isinstance(result, dict):
