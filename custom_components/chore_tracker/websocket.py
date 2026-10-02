@@ -208,12 +208,11 @@ def kiosk_items(
     Split actionable occurrences into a member's assigned and up-for-grabs lists.
 
     Returns None when the member is not in this household. Up for grabs covers
-    chores the member is eligible for but that are unassigned or assigned to
-    someone else; the server lets eligible members complete those.
+    chores the member is eligible for (the server's claim rules) but that are
+    unassigned or assigned to someone else. This filters what the kiosk shows;
+    the server's complete endpoint does not check eligibility itself.
     """
-    if not data:
-        return {"assigned": [], "available": []}
-    member_names = _member_names(data)
+    member_names = _member_names(data or {})
     if member_id not in member_names:
         return None
     rooms_by_id = _rooms_by_id(data)

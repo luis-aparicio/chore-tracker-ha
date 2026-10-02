@@ -173,6 +173,7 @@ def test_kiosk_items_unknown_member() -> None:
         kiosk_items({"members": MEMBERS, "occurrences": KIOSK_OCCURRENCES}, "mem_x")
         is None
     )
+    assert kiosk_items(None, "mem_x") is None
 
 
 async def test_kiosk_items_websocket(
