@@ -149,6 +149,7 @@ Payloads include occurrence / chore ids and related fields for automations.
 | Type | Role |
 |---|---|
 | `chore_tracker/freshness` | Returns `{ rows, config_entry_id }` for freshness cards. Each row: `occurrenceId`, `choreId`, `title`, `roomId`, `roomName`, `dueAt`, `lastCompletedAt`, optional `freshnessPct` (0–100 **fresh**, from the future #33 decay engine; cards invert to dirtiness for Tody bars). Optional `config_entry_id` when more than one entry is loaded. |
+| `chore_tracker/kiosk_items` | Takes `member_id` (optional `config_entry_id`); returns `{ assigned, available, config_entry_id }` for the kiosk card. `assigned`: actionable chores assigned to that member. `available` (up for grabs): other actionable chores the member is eligible for (open with an empty pool means everyone, otherwise the chore's pool), including ones currently assigned to someone else. Rows: `occurrenceId`, `title`, `dueAt`, `roomName`, `assigneeId`, `assigneeName`. Unknown member → `not_found`. Does not change the todo entities or sensors. |
 
 The coordinator snapshot also includes `rooms` alongside household, members, and occurrences.
 

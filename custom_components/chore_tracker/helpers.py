@@ -140,3 +140,30 @@ def assignee_id(item: dict[str, Any]) -> str | None:
         return None
     value = occurrence.get("assigneeId")
     return value if isinstance(value, str) else None
+
+
+def eligible_member_ids(
+    item: dict[str, Any],
+    household_member_ids: list[str],
+) -> list[str] | None:
+    """
+    Members who may do this chore, mirroring the server's eligibleMemberIds.
+
+    Open with an empty pool means everyone; every other strategy uses the pool.
+    Returns None when the chore carries no assignment to judge by.
+    """
+    chore = item.get("chore")
+    if not isinstance(chore, dict):
+        return None
+    assignment = chore.get("assignment")
+    if not isinstance(assignment, dict):
+        return None
+    raw_pool = assignment.get("pool")
+    pool = (
+        [m for m in raw_pool if isinstance(m, str)]
+        if isinstance(raw_pool, list)
+        else []
+    )
+    if assignment.get("strategy") == "open" and not pool:
+        return list(household_member_ids)
+    return pool
