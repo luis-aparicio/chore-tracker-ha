@@ -103,6 +103,20 @@
         }
       }
     },
+    "undo": {
+      "name": "Undo chore",
+      "description": "Undo the latest action on an occurrence (complete, skip, snooze, or reassign) while the server's undo window is open.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The occurrence id whose latest action to undo."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
     "assign": {
       "name": "Assign chore",
       "description": "Reassign an occurrence to a household member.",

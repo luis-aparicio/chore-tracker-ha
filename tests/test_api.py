@@ -179,3 +179,23 @@ async def test_coordinator_poll_and_ws_refresh(hass: HomeAssistant) -> None:
     ) as refresh:
         await coordinator._async_on_ws_message({"type": "event"})
         refresh.assert_awaited()
+
+
+async def test_snapshot_occurrences_have_no_lower_bound() -> None:
+    """The default fetch sends only `to`, so long-overdue chores are included."""
+    client = ChoreTrackerApiClient(
+        url="http://host:8080", token="ct_token", session=MagicMock()
+    )
+    with patch.object(client, "_request", AsyncMock(return_value=[])) as request:
+        await client.async_get_occurrences()
+        params = request.await_args.kwargs["params"]
+        assert set(params) == {"to"}
+
+        await client.async_get_occurrences(
+            from_iso="2026-09-01T00:00:00+00:00", to_iso="2026-10-01T00:00:00+00:00"
+        )
+        params = request.await_args.kwargs["params"]
+        assert params == {
+            "from": "2026-09-01T00:00:00+00:00",
+            "to": "2026-10-01T00:00:00+00:00",
+        }

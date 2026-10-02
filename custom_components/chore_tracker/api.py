@@ -109,12 +109,23 @@ class ChoreTrackerApiClient:
         from_iso: str | None = None,
         to_iso: str | None = None,
     ) -> list[dict[str, Any]]:
-        """GET /api/v1/occurrences for a due window."""
-        if from_iso is None or to_iso is None:
-            now = datetime.now(tz=UTC)
-            from_iso = (now - timedelta(days=lookback_days)).isoformat()
+        """
+        GET /api/v1/occurrences for a due window.
+
+        Without explicit bounds (the coordinator snapshot) only the upper bound is
+        sent: the server already limits the list to pending and snoozed rows, and a
+        lower bound would hide chores more than ``lookback_days`` overdue, including
+        the stalest decay chores the kiosk should show first. ``lookback_days`` is
+        kept for callers that pass it explicitly.
+        """
+        now = datetime.now(tz=UTC)
+        if to_iso is None:
             to_iso = (now + timedelta(days=lookahead_days)).isoformat()
-        params = {"from": from_iso, "to": to_iso}
+        if from_iso is None and lookback_days != OCCURRENCE_LOOKBACK_DAYS:
+            from_iso = (now - timedelta(days=lookback_days)).isoformat()
+        params = {"to": to_iso}
+        if from_iso is not None:
+            params["from"] = from_iso
         data = await self._request("GET", "/api/v1/occurrences", params=params)
         if not isinstance(data, list):
             msg = "Unexpected occurrences response"
@@ -139,6 +150,14 @@ class ChoreTrackerApiClient:
         return await self._request(
             "POST",
             f"/api/v1/occurrences/{occurrence_id}/skip",
+            json_data={},
+        )
+
+    async def async_undo_occurrence(self, occurrence_id: str) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/undo (server enforces the undo window)."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/undo",
             json_data={},
         )
 

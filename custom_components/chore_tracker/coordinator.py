@@ -121,6 +121,16 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Force a full REST refresh when the server reports truncated replay."""
         await self.async_request_refresh()
 
+    async def async_refresh_after_action(self) -> None:
+        """
+        Refresh now after a user action, bypassing the request debouncer.
+
+        The server's WebSocket push for the same action usually triggers a debounced
+        refresh first, which would put async_request_refresh in its cooldown and leave
+        cards reading stale data for up to 10 seconds (taps looked like they failed).
+        """
+        await self.async_refresh()
+
     def fire_completed_from_action(self, result: dict[str, Any]) -> None:
         """Fire chore_tracker_completed from a complete API response (deduped)."""
         event = result.get("event")

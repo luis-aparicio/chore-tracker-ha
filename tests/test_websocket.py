@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.chore_tracker.websocket import freshness_rows, kiosk_items
+from custom_components.chore_tracker.websocket import (
+    freshness_rows,
+    kiosk_items,
+    kiosk_list,
+)
 from tests.conftest import MEMBERS, OCCURRENCES, ROOMS
 
 
@@ -198,3 +204,105 @@ async def test_kiosk_items_websocket(
     msg = await client.receive_json()
     assert not msg["success"]
     assert msg["error"]["code"] == "not_found"
+
+
+DEFAULT_POINTS = 3
+DECAY_FRESHNESS = 62.5
+
+
+def _list_occ(  # noqa: PLR0913 — test row builder
+    occ_id: str,
+    *,
+    due: str,
+    assignee: str | None = None,
+    schedule: str = "interval",
+    freshness: float | None = None,
+    points: int = DEFAULT_POINTS,
+    state: str = "pending",
+) -> dict:
+    return {
+        "occurrence": {
+            "id": occ_id,
+            "choreId": f"chore_{occ_id}",
+            "assigneeId": assignee,
+            "dueAt": due,
+            "state": state,
+        },
+        "chore": {
+            "id": f"chore_{occ_id}",
+            "title": occ_id.title(),
+            "points": points,
+            "schedule": {"type": schedule},
+        },
+        "freshnessPct": freshness,
+    }
+
+
+def test_kiosk_list_today_overdue_and_decay() -> None:
+    """Due by end of household today plus all decay chores, like the web kiosk."""
+    household = {"timezone": "America/Chicago", "featurePoints": True}
+    data = {
+        "household": household,
+        "members": MEMBERS,
+        "occurrences": [
+            _list_occ("overdue", due="2026-09-29T14:00:00.000Z", assignee="mem_alex"),
+            # 03:00Z on Oct 2 is still Oct 1 in Chicago.
+            _list_occ("tonight", due="2026-10-02T03:00:00.000Z"),
+            _list_occ("all_day_today", due="2026-10-01"),
+            _list_occ("tomorrow", due="2026-10-02T15:00:00.000Z"),
+            _list_occ(
+                "decay",
+                due="2026-10-09T15:00:00.000Z",
+                schedule="decay",
+                freshness=DECAY_FRESHNESS,
+            ),
+            _list_occ("done", due="2026-09-30T15:00:00.000Z", state="completed"),
+        ],
+    }
+    result = kiosk_list(data, now=datetime(2026, 10, 1, 18, 0, tzinfo=UTC))
+
+    ids = [row["occurrenceId"] for row in result["rows"]]
+    assert ids == ["overdue", "all_day_today", "tonight", "decay"]
+    overdue = result["rows"][0]
+    assert overdue["assignee"] == {
+        "id": "mem_alex",
+        "displayName": "Alex",
+        "colour": "#112233",
+        "avatar": None,
+    }
+    assert overdue["points"] == DEFAULT_POINTS
+    assert overdue["freshnessPct"] is None
+    decay = result["rows"][3]
+    assert decay["decay"] is True
+    # No assignment on these test chores: claim eligibility is unknown.
+    assert decay["eligibleMemberIds"] is None
+    assert decay["freshnessPct"] == DECAY_FRESHNESS
+    assert result["points"] is True
+    assert result["timezone"] == "America/Chicago"
+    assert [member["displayName"] for member in result["members"]] == ["Alex", "Sam"]
+
+
+def test_kiosk_list_empty_without_data() -> None:
+    """Missing coordinator data yields an empty, well-formed payload."""
+    result = kiosk_list(None)
+    assert result["rows"] == []
+    assert result["members"] == []
+    assert result["points"] is False
+
+
+async def test_kiosk_list_websocket(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """The WS command returns members, rows, and the entry id."""
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "chore_tracker/kiosk_list"})
+    msg = await client.receive_json()
+    assert msg["success"]
+    assert {member["id"] for member in msg["result"]["members"]} == {
+        "mem_alex",
+        "mem_sam",
+    }
+    assert msg["result"]["config_entry_id"] == setup_integration.entry_id
+    assert isinstance(msg["result"]["rows"], list)

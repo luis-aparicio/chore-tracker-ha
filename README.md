@@ -39,7 +39,7 @@ bundle into this repo’s `www/` folder. Card types:
 |---|---|
 | `chore-tracker-member-list-card` | Checklist from a `todo.*_chores` entity; tap to complete, long-press for skip / snooze / assign |
 | `chore-tracker-freshness-card` | Tody-style freshness bars (group by room or chore); tap row to complete. Uses `chore_tracker/freshness` WebSocket data |
-| `chore-tracker-kiosk-card` | Wall-tablet member chip switcher + large-button complete list (auto-discovers member todos; no PIN; from the cards release that reads `member_id`, completions are credited to the selected member) |
+| `chore-tracker-kiosk-card` | Wall-tablet kiosk matching the web app: pick a member, then Done / Claim any household chore due today plus decay chores (freshness bars), with due labels, assignee avatars, and points. Done credits the picked member; Undo for 30 seconds; returns to the picker after `idle_seconds` (default 60, 0 disables). No PIN |
 | `chore-tracker-leaderboard-card` | Period shell (week / month / all-time); rankings wait on household stats (#29) |
 | `chore-tracker-stub-card` | Pipeline smoke card (optional on dashboards) |
 
@@ -54,7 +54,7 @@ horizon_days: 7
 
 ```yaml
 type: custom:chore-tracker-kiosk-card
-title: Kiosk
+idle_seconds: 60   # back to the member picker; 0 disables
 ```
 
 ## Manual setup
@@ -112,10 +112,12 @@ uses an admin API token (as Supervisor discovery does).
 | `chore_tracker.skip` | `POST /api/v1/occurrences/:id/skip` |
 | `chore_tracker.snooze` | `POST /api/v1/occurrences/:id/snooze` (`snooze_until`) |
 | `chore_tracker.assign` | `POST /api/v1/occurrences/:id/reassign` (`assignee_id`) |
+| `chore_tracker.undo` | `POST /api/v1/occurrences/:id/undo`: reverts the latest complete, skip, snooze, or reassign within the server's undo window |
 | `chore_tracker.create_starter_dashboard` | Creates an optional storage-mode Lovelace dashboard (see below) |
 
 Occurrence services require `occurrence_id`. Optional `config_entry_id` when more than one
-entry is loaded. After a successful call the coordinator refreshes.
+entry is loaded. After a successful call the coordinator refreshes immediately (not
+debounced), so cards and todo lists reflect the change on the next read.
 
 ## Starter dashboard (optional)
 
@@ -173,6 +175,7 @@ server events that are not mapped to the HA bus yet.
 | Type | Role |
 |---|---|
 | `chore_tracker/freshness` | Returns `{ rows, config_entry_id }` for freshness cards. Each row: `occurrenceId`, `choreId`, `title`, `roomId`, `roomName`, `dueAt`, `lastCompletedAt`, optional `freshnessPct` (0–100 **fresh**, from the future #33 decay engine; cards invert to dirtiness for Tody bars). Optional `config_entry_id` when more than one entry is loaded. |
+| `chore_tracker/kiosk_list` | Optional `config_entry_id`. Returns `{ members, rows, points, timezone, config_entry_id }` for the kiosk card, mirroring the web app's kiosk: actionable chores due by the end of today in household time plus every decay chore. `members`: `id`, `displayName`, `colour`, `avatar`. Rows: `occurrenceId`, `title`, `dueAt`, `roomName`, `assignee` (member or null), `points`, `freshnessPct` (decay only), `decay`, `eligibleMemberIds` (who may claim it, per the server's claim rules; null when unknown). `points` is the household points feature. |
 | `chore_tracker/kiosk_items` | Takes `member_id` (optional `config_entry_id`); returns `{ assigned, available, config_entry_id }` for the kiosk card. `assigned`: actionable chores assigned to that member. `available` (up for grabs): other actionable chores the member is eligible for (open with an empty pool means everyone, otherwise the chore's pool), including ones currently assigned to someone else. Rows: `occurrenceId`, `title`, `dueAt`, `roomName`, `assigneeId`, `assigneeName`. Unknown member → `not_found`. Does not change the todo entities or sensors. |
 
 The coordinator snapshot also includes `rooms` alongside household, members, and occurrences.

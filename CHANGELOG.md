@@ -5,6 +5,28 @@ All notable changes to this integration are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Kiosk card rebuilt to match the web app kiosk: member picker with avatars,
+  every household chore due today plus decay chores with freshness bars, due
+  labels, points, Claim, one-tap Done credited to the picked member, 30 second
+  Undo, and an idle return to the picker (bundled cards)
+- `chore_tracker/kiosk_list` WebSocket command backing the kiosk card
+- `chore_tracker.undo` service (`POST /api/v1/occurrences/:id/undo`)
+
+### Fixed
+
+- Completing a chore from a card sometimes looked like it needed a second tap:
+  the post-action refresh was debounced behind the server's own WebSocket push,
+  so cards read stale data for up to 10 seconds. Actions now refresh
+  immediately.
+- Chores more than 7 days overdue (including the stalest decay chores) never
+  reached Home Assistant because the snapshot sent a 7-day lower bound. The
+  snapshot now only bounds the lookahead; the server already limits the list
+  to open chores.
+
 ## [0.6.0] - 2026-10-01
 
 ### Changed
