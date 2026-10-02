@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `chore_tracker/kiosk_items` WebSocket command: a member's assigned chores plus
   "up for grabs" chores they are eligible for, for the kiosk card. Todo entities
   and sensors are unchanged.
+- Top-level `member_id` on `chore_tracker_completed` events: the member credited
+  with the completion (`attributedMemberId`, then `completedForMemberId`, then
+  `actorId` for older servers). `actor_id` is unchanged.
 
 ## [0.5.0] - 2026-09-27
 

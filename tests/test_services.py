@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+import pytest
 from homeassistant.core import Event, HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -111,6 +112,44 @@ async def test_completed_bus_event_from_ws(
     assert len(events) == 1
     assert events[0].data["occurrence_id"] == "occ_alex_1"
     assert events[0].data["chore_id"] == "chore_1"
+    assert events[0].data["member_id"] == "mem_alex"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"attributedMemberId": "mem_sam"}, "mem_sam"),
+        ({"completedForMemberId": "mem_sam"}, "mem_sam"),
+        ({}, "mem_alex"),
+    ],
+)
+async def test_completed_bus_event_member_id(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    payload: dict[str, str],
+    expected: str,
+) -> None:
+    """member_id is the credited member, falling back to the actor."""
+    coordinator = setup_integration.runtime_data
+    events: list[Event] = []
+    hass.bus.async_listen(EVENT_COMPLETED, events.append)
+
+    coordinator.fire_completed_from_action(
+        {
+            "event": {
+                "id": "evt_member",
+                "type": "completed",
+                "occurrenceId": "occ_alex_1",
+                "actorId": "mem_alex",
+                "payload": payload,
+            }
+        }
+    )
+
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    assert events[0].data["member_id"] == expected
+    assert events[0].data["actor_id"] == "mem_alex"
 
 
 async def test_overdue_edge_event(

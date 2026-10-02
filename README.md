@@ -144,6 +144,30 @@ same path are left alone with a warning.
 
 Payloads include occurrence / chore ids and related fields for automations.
 
+`chore_tracker_completed` data keys: `event_id`, `household_id`, `occurrence_id`,
+`chore_id`, `actor_id`, `member_id`, `payload`, `created_at`, `config_entry_id`.
+`member_id` is the member credited with the completion (for example the member
+picked on the kiosk card); `actor_id` is who made the call, usually the API
+token's owner. Use `member_id` for "when Alex completes a chore" automations:
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: chore_tracker_completed
+    event_data:
+      member_id: <alex's member id>
+conditions:
+  # Skip check-offs still waiting for an admin to approve them.
+  - condition: template
+    value_template: "{{ not trigger.event.data.payload.get('awaitingApproval', false) }}"
+```
+
+Find a member's id in the `member_id` attribute of their `todo.<name>_chores`
+entity (Developer tools > States), or in a fired event under Developer tools >
+Events. For members who require approval, the event fires when the chore is
+submitted (`payload.awaitingApproval: true`); approval and undo are separate
+server events that are not mapped to the HA bus yet.
+
 ## WebSocket commands
 
 | Type | Role |

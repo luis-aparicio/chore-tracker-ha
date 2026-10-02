@@ -37,6 +37,17 @@ if TYPE_CHECKING:
     from .api import ChoreTrackerApiClient
 
 
+def _credited_member_id(event: dict[str, Any], payload: Any) -> str | None:
+    """Member credited for a completion; actor_id is the API token's owner."""
+    if isinstance(payload, dict):
+        for key in ("attributedMemberId", "completedForMemberId"):
+            value = payload.get(key)
+            if isinstance(value, str) and value:
+                return value
+    actor = event.get("actorId")
+    return actor if isinstance(actor, str) and actor else None
+
+
 class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch household snapshot; push updates via WebSocket when connected."""
 
@@ -139,6 +150,7 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 keep = list(self._fired_completed_ids)[-100:]
                 self._fired_completed_ids = set(keep)
 
+        payload = event.get("payload") or {}
         self.hass.bus.async_fire(
             EVENT_COMPLETED,
             {
@@ -147,7 +159,8 @@ class ChoreTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "occurrence_id": event.get("occurrenceId"),
                 "chore_id": event.get("choreId"),
                 "actor_id": event.get("actorId"),
-                "payload": event.get("payload") or {},
+                "member_id": _credited_member_id(event, payload),
+                "payload": payload,
                 "created_at": event.get("createdAt"),
                 "config_entry_id": self.config_entry.entry_id
                 if self.config_entry
