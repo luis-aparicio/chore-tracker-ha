@@ -17,6 +17,7 @@ from custom_components.chore_tracker.const import (
     EVENT_OVERDUE,
     SERVICE_ASSIGN,
     SERVICE_COMPLETE,
+    SERVICE_RELEASE,
     SERVICE_SKIP,
     SERVICE_SNOOZE,
     SERVICE_UNDO,
@@ -258,6 +259,7 @@ async def test_actions_refresh_immediately(
     [
         (SERVICE_SKIP, {"occurrence_id": "occ_alex_1"}),
         (SERVICE_UNDO, {"occurrence_id": "occ_alex_1"}),
+        (SERVICE_RELEASE, {"occurrence_id": "occ_alex_1"}),
         (SERVICE_ASSIGN, {"occurrence_id": "occ_alex_1", "assignee_id": "mem_sam"}),
         (
             SERVICE_SNOOZE,
@@ -292,4 +294,31 @@ async def test_undo_api_error_raises(
     with pytest.raises(HomeAssistantError, match="window expired"):
         await hass.services.async_call(
             DOMAIN, SERVICE_UNDO, {"occurrence_id": "occ_alex_1"}, blocking=True
+        )
+
+
+async def test_release_service_calls_api(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """chore_tracker.release posts to the release endpoint."""
+    client = setup_integration.runtime_data.client
+    await hass.services.async_call(
+        DOMAIN, SERVICE_RELEASE, {"occurrence_id": "occ_alex_1"}, blocking=True
+    )
+    client.async_release_occurrence.assert_awaited_with("occ_alex_1")
+
+
+async def test_release_refused_raises(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """A refused release (fixed or rotation chore) surfaces as a HomeAssistantError."""
+    client = setup_integration.runtime_data.client
+    client.async_release_occurrence.side_effect = ChoreTrackerApiError(
+        "Only open chores can be released"
+    )
+    with pytest.raises(HomeAssistantError, match="Only open chores"):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_RELEASE, {"occurrence_id": "occ_alex_1"}, blocking=True
         )

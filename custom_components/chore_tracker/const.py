@@ -27,6 +27,7 @@ SERVICE_SKIP: Final = "skip"
 SERVICE_SNOOZE: Final = "snooze"
 SERVICE_ASSIGN: Final = "assign"
 SERVICE_UNDO: Final = "undo"
+SERVICE_RELEASE: Final = "release"
 SERVICE_CREATE_STARTER_DASHBOARD: Final = "create_starter_dashboard"
 
 ATTR_OCCURRENCE_ID: Final = "occurrence_id"

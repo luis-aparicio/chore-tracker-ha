@@ -181,6 +181,9 @@ def _configure_client(client: MagicMock) -> MagicMock:
             },
         }
     )
+    client.async_release_occurrence = AsyncMock(
+        return_value={"occurrence": {"id": "occ_alex_1", "assigneeId": None}}
+    )
     client.async_undo_occurrence = AsyncMock(
         return_value={"occurrence": {"id": "occ_alex_1", "state": "pending"}}
     )

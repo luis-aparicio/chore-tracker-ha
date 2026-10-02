@@ -8,6 +8,7 @@ import logging
 import socket
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
@@ -19,6 +20,19 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def _error_message(response: aiohttp.ClientResponse) -> str:
+    """Server error text from `{ error, message }`, else the HTTP reason."""
+    try:
+        body = await response.json(content_type=None)
+    except (aiohttp.ClientError, ValueError):
+        body = None
+    if isinstance(body, dict):
+        message = body.get("message")
+        if isinstance(message, str) and message:
+            return message
+    return f"Chore Tracker returned {response.status} {response.reason or ''}".strip()
 
 
 class ChoreTrackerApiError(Exception):
@@ -150,6 +164,14 @@ class ChoreTrackerApiClient:
         return await self._request(
             "POST",
             f"/api/v1/occurrences/{occurrence_id}/skip",
+            json_data={},
+        )
+
+    async def async_release_occurrence(self, occurrence_id: str) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/release (open chores only)."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/release",
             json_data={},
         )
 
@@ -344,9 +366,20 @@ class ChoreTrackerApiClient:
                     params=params,
                     json=json_data,
                 ) as response:
-                    if response.status in (401, 403):
+                    # Reads (setup, refresh) failing auth mean the token is bad or
+                    # lacks rights: reauth. An action refused with 403 is a rule
+                    # (e.g. not your claim), so surface the server's reason instead.
+                    if response.status == HTTPStatus.UNAUTHORIZED or (
+                        response.status == HTTPStatus.FORBIDDEN and method == "GET"
+                    ):
                         msg = "Invalid API token"
                         raise ChoreTrackerAuthError(msg)
+                    if (
+                        HTTPStatus.BAD_REQUEST
+                        <= response.status
+                        < HTTPStatus.INTERNAL_SERVER_ERROR
+                    ):
+                        raise ChoreTrackerApiError(await _error_message(response))
                     response.raise_for_status()
                     return await response.json()
         except (ChoreTrackerAuthError, ChoreTrackerApiError):

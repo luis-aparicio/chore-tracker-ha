@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.chore_tracker.api import (
     ChoreTrackerApiClient,
+    ChoreTrackerApiError,
     ChoreTrackerAuthError,
     normalize_url,
 )
@@ -199,3 +200,58 @@ async def test_snapshot_occurrences_have_no_lower_bound() -> None:
             "from": "2026-09-01T00:00:00+00:00",
             "to": "2026-10-01T00:00:00+00:00",
         }
+
+
+def _client_returning(
+    status: int, body: Any, reason: str = ""
+) -> ChoreTrackerApiClient:
+    session = MagicMock()
+    response = MagicMock()
+    response.status = status
+    response.reason = reason
+    response.raise_for_status = MagicMock()
+    response.json = AsyncMock(return_value=body)
+    response.__aenter__ = AsyncMock(return_value=response)
+    response.__aexit__ = AsyncMock(return_value=None)
+    session.request = MagicMock(return_value=response)
+    return ChoreTrackerApiClient(url="http://host:8080", token="ct_x", session=session)
+
+
+async def test_action_conflict_surfaces_server_message() -> None:
+    """A 409 on an action raises ChoreTrackerApiError with the server's reason."""
+    api = _client_returning(
+        409, {"error": "conflict", "message": "Only open chores can be released"}
+    )
+    with pytest.raises(ChoreTrackerApiError, match="Only open chores can be released"):
+        await api.async_release_occurrence("occ_1")
+
+
+async def test_action_forbidden_is_not_an_auth_failure() -> None:
+    """A 403 on an action is a rule, not a bad token: no reauth, server message kept."""
+    api = _client_returning(
+        403,
+        {
+            "error": "forbidden",
+            "message": "You can only release chores you have claimed",
+        },
+    )
+    with pytest.raises(
+        ChoreTrackerApiError, match="only release chores you have claimed"
+    ) as err:
+        await api.async_release_occurrence("occ_1")
+    assert not isinstance(err.value, ChoreTrackerAuthError)
+
+
+async def test_read_forbidden_still_means_bad_token() -> None:
+    """401/403 on reads (setup, refresh) keep triggering reauth."""
+    for status in (401, 403):
+        api = _client_returning(status, {"error": "forbidden", "message": "nope"})
+        with pytest.raises(ChoreTrackerAuthError):
+            await api.async_get_household()
+
+
+async def test_error_without_json_body_uses_status() -> None:
+    """Non-JSON 4xx bodies fall back to the HTTP status and reason."""
+    api = _client_returning(422, None, reason="Unprocessable Entity")
+    with pytest.raises(ChoreTrackerApiError, match="422 Unprocessable Entity"):
+        await api.async_skip_occurrence("occ_1")

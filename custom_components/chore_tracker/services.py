@@ -27,6 +27,7 @@ from .const import (
     SERVICE_ASSIGN,
     SERVICE_COMPLETE,
     SERVICE_CREATE_STARTER_DASHBOARD,
+    SERVICE_RELEASE,
     SERVICE_SKIP,
     SERVICE_SNOOZE,
     SERVICE_UNDO,
@@ -43,6 +44,13 @@ SERVICE_COMPLETE_SCHEMA = vol.Schema(
 )
 
 SERVICE_SKIP_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_OCCURRENCE_ID): cv.string,
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+    }
+)
+
+SERVICE_RELEASE_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_OCCURRENCE_ID): cv.string,
         vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
@@ -147,6 +155,17 @@ async def _handle_skip(call: ServiceCall) -> None:
     await coordinator.async_refresh_after_action()
 
 
+async def _handle_release(call: ServiceCall) -> None:
+    """Give a claimed open chore back (unassigned)."""
+    coordinator = _get_coordinator(call.hass, call)
+    occurrence_id: str = call.data[ATTR_OCCURRENCE_ID]
+    try:
+        await coordinator.client.async_release_occurrence(occurrence_id)
+    except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
+        raise HomeAssistantError(str(err)) from err
+    await coordinator.async_refresh_after_action()
+
+
 async def _handle_undo(call: ServiceCall) -> None:
     """Undo a recent complete or skip (within the server's undo window)."""
     coordinator = _get_coordinator(call.hass, call)
@@ -230,6 +249,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
+        SERVICE_RELEASE,
+        _handle_release,
+        schema=SERVICE_RELEASE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_UNDO,
         _handle_undo,
         schema=SERVICE_UNDO_SCHEMA,
@@ -260,6 +285,7 @@ def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_SNOOZE,
         SERVICE_ASSIGN,
         SERVICE_UNDO,
+        SERVICE_RELEASE,
         SERVICE_CREATE_STARTER_DASHBOARD,
     ):
         if hass.services.has_service(DOMAIN, service_name):
