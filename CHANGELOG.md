@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the post-action refresh was debounced behind the server's own WebSocket push,
   so cards read stale data for up to 10 seconds. Actions now refresh
   immediately.
+- Chores more than 7 days overdue (including the stalest decay chores) never
+  reached Home Assistant because the snapshot sent a 7-day lower bound. The
+  snapshot now only bounds the lookahead; the server already limits the list
+  to open chores.
 
 ## [0.6.0] - 2026-10-01
 

@@ -274,6 +274,8 @@ def test_kiosk_list_today_overdue_and_decay() -> None:
     assert overdue["freshnessPct"] is None
     decay = result["rows"][3]
     assert decay["decay"] is True
+    # No assignment on these test chores: claim eligibility is unknown.
+    assert decay["eligibleMemberIds"] is None
     assert decay["freshnessPct"] == DECAY_FRESHNESS
     assert result["points"] is True
     assert result["timezone"] == "America/Chicago"

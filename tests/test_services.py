@@ -7,8 +7,10 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.core import Event, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.chore_tracker.api import ChoreTrackerApiError
 from custom_components.chore_tracker.const import (
     DOMAIN,
     EVENT_COMPLETED,
@@ -249,3 +251,45 @@ async def test_actions_refresh_immediately(
         )
     refresh.assert_awaited_once()
     debounced.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        (SERVICE_SKIP, {"occurrence_id": "occ_alex_1"}),
+        (SERVICE_UNDO, {"occurrence_id": "occ_alex_1"}),
+        (SERVICE_ASSIGN, {"occurrence_id": "occ_alex_1", "assignee_id": "mem_sam"}),
+        (
+            SERVICE_SNOOZE,
+            {"occurrence_id": "occ_alex_1", "snooze_until": "2026-09-28T18:00:00"},
+        ),
+    ],
+)
+async def test_every_action_refreshes_immediately(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+    service: str,
+    data: dict[str, str],
+) -> None:
+    """Skip, undo, assign, and snooze also bypass the debouncer."""
+    coordinator = setup_integration.runtime_data
+    with (
+        patch.object(coordinator, "async_refresh") as refresh,
+        patch.object(coordinator, "async_request_refresh") as debounced,
+    ):
+        await hass.services.async_call(DOMAIN, service, data, blocking=True)
+    refresh.assert_awaited_once()
+    debounced.assert_not_called()
+
+
+async def test_undo_api_error_raises(
+    hass: HomeAssistant,
+    setup_integration: MockConfigEntry,
+) -> None:
+    """A rejected undo (window closed) surfaces as a HomeAssistantError."""
+    client = setup_integration.runtime_data.client
+    client.async_undo_occurrence.side_effect = ChoreTrackerApiError("window expired")
+    with pytest.raises(HomeAssistantError, match="window expired"):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_UNDO, {"occurrence_id": "occ_alex_1"}, blocking=True
+        )

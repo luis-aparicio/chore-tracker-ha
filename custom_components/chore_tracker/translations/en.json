@@ -105,11 +105,11 @@
     },
     "undo": {
       "name": "Undo chore",
-      "description": "Undo a recent complete or skip while the server's undo window is open.",
+      "description": "Undo the latest action on an occurrence (complete, skip, snooze, or reassign) while the server's undo window is open.",
       "fields": {
         "occurrence_id": {
           "name": "Occurrence ID",
-          "description": "The occurrence id that was completed or skipped."
+          "description": "The occurrence id whose latest action to undo."
         },
         "config_entry_id": {
           "name": "Config entry",

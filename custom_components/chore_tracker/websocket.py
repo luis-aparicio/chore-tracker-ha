@@ -334,6 +334,9 @@ def kiosk_list(
                 if isinstance(freshness, (int, float)) and decay
                 else None,
                 "decay": decay,
+                # Who may claim it, per the server's claim rules; None when the
+                # chore carries no assignment to judge by.
+                "eligibleMemberIds": eligible_member_ids(item, list(by_id)),
             }
         )
 
