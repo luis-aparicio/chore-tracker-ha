@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `member_id` state attribute on per-member `todo` entities so Lovelace cards
   (kiosk) can attribute completions to the selected member
+- `chore_tracker/kiosk_items` WebSocket command: a member's assigned chores plus
+  "up for grabs" chores they are eligible for, for the kiosk card. Todo entities
+  and sensors are unchanged.
 
 ## [0.5.0] - 2026-09-27
 

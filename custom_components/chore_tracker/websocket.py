@@ -12,9 +12,17 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import ATTR_CONFIG_ENTRY_ID, DOMAIN
 from .coordinator import ChoreTrackerCoordinator
-from .helpers import chore_title, is_actionable, occurrence_row
+from .helpers import (
+    assignee_id,
+    chore_title,
+    eligible_member_ids,
+    is_actionable,
+    occurrence_row,
+)
 
 WS_TYPE_FRESHNESS = f"{DOMAIN}/freshness"
+WS_TYPE_KIOSK_ITEMS = f"{DOMAIN}/kiosk_items"
+ATTR_MEMBER_ID = "member_id"
 
 
 def _coordinator_for(
@@ -151,6 +159,94 @@ def freshness_rows(data: dict[str, Any] | None) -> list[dict[str, Any]]:
     return rows
 
 
+def _member_names(data: dict[str, Any]) -> dict[str, str]:
+    """Map member id → display name from the snapshot."""
+    names: dict[str, str] = {}
+    members = data.get("members") or []
+    if not isinstance(members, list):
+        return names
+    for member in members:
+        if not isinstance(member, dict):
+            continue
+        member_id = member.get("id")
+        name = member.get("displayName")
+        if isinstance(member_id, str):
+            names[member_id] = name if isinstance(name, str) and name else member_id
+    return names
+
+
+def _kiosk_item(
+    item: dict[str, Any],
+    rooms_by_id: dict[str, str],
+    member_names: dict[str, str],
+) -> dict[str, Any] | None:
+    occurrence = occurrence_row(item)
+    if occurrence is None:
+        return None
+    occ_id = occurrence.get("id")
+    if not isinstance(occ_id, str) or not occ_id:
+        return None
+    chore = item.get("chore") if isinstance(item.get("chore"), dict) else {}
+    _, room_name = _resolve_room(item, chore, rooms_by_id)
+    due_at = occurrence.get("dueAt")
+    current = assignee_id(item)
+    return {
+        "occurrenceId": occ_id,
+        "title": chore_title(item),
+        "dueAt": due_at if isinstance(due_at, str) else None,
+        "roomName": room_name,
+        "assigneeId": current,
+        "assigneeName": member_names.get(current) if current else None,
+    }
+
+
+def kiosk_items(
+    data: dict[str, Any] | None,
+    member_id: str,
+) -> dict[str, list[dict[str, Any]]] | None:
+    """
+    Split actionable occurrences into a member's assigned and up-for-grabs lists.
+
+    Returns None when the member is not in this household. Up for grabs covers
+    chores the member is eligible for but that are unassigned or assigned to
+    someone else; the server lets eligible members complete those.
+    """
+    if not data:
+        return {"assigned": [], "available": []}
+    member_names = _member_names(data)
+    if member_id not in member_names:
+        return None
+    rooms_by_id = _rooms_by_id(data)
+    member_ids = list(member_names)
+    occurrences = data.get("occurrences") or []
+    assigned: list[dict[str, Any]] = []
+    available: list[dict[str, Any]] = []
+    for item in occurrences if isinstance(occurrences, list) else []:
+        if not isinstance(item, dict) or not is_actionable(item):
+            continue
+        row = _kiosk_item(item, rooms_by_id, member_names)
+        if row is None:
+            continue
+        if row["assigneeId"] == member_id:
+            assigned.append(row)
+            continue
+        eligible = eligible_member_ids(item, member_ids)
+        if eligible is None:
+            # No assignment to judge by: only unassigned chores are fair game.
+            if row["assigneeId"] is None:
+                available.append(row)
+        elif member_id in eligible:
+            available.append(row)
+
+    def _by_due(row: dict[str, Any]) -> tuple[bool, str]:
+        due = row["dueAt"]
+        return (due is None, due or "")
+
+    assigned.sort(key=_by_due)
+    available.sort(key=_by_due)
+    return {"assigned": assigned, "available": available}
+
+
 @callback
 def async_setup_websocket(hass: HomeAssistant) -> None:
     """Register WebSocket commands (idempotent)."""
@@ -158,6 +254,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     if hass.data.get(key):
         return
     websocket_api.async_register_command(hass, websocket_freshness)
+    websocket_api.async_register_command(hass, websocket_kiosk_items)
     hass.data[key] = True
 
 
@@ -184,6 +281,42 @@ async def websocket_freshness(
         msg["id"],
         {
             "rows": freshness_rows(coordinator.data),
+            "config_entry_id": coordinator.config_entry.entry_id
+            if coordinator.config_entry
+            else None,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): WS_TYPE_KIOSK_ITEMS,
+        vol.Required(ATTR_MEMBER_ID): cv.string,
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+    }
+)
+@websocket_api.async_response
+async def websocket_kiosk_items(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return a member's assigned and up-for-grabs chores for the kiosk card."""
+    try:
+        coordinator = _coordinator_for(hass, msg.get(ATTR_CONFIG_ENTRY_ID))
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, str(err))
+        return
+
+    result = kiosk_items(coordinator.data, msg[ATTR_MEMBER_ID])
+    if result is None:
+        connection.send_error(msg["id"], websocket_api.ERR_NOT_FOUND, "Unknown member")
+        return
+
+    connection.send_result(
+        msg["id"],
+        {
+            **result,
             "config_entry_id": coordinator.config_entry.entry_id
             if coordinator.config_entry
             else None,
