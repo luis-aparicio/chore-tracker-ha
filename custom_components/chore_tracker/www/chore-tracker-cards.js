@@ -1609,6 +1609,26 @@ var Ve = 3e4, He = 60, Ue = 6e4, We = /^#[0-9a-f]{6}$/i, Ge = class extends G {
 			}
 		}
 	}
+	async _release(e) {
+		let t = this.hass;
+		if (t && this._selectedId && !this._busy.has(e.occurrenceId)) {
+			this._setBusy(e.occurrenceId, !0), this._error = void 0;
+			try {
+				let n = { occurrence_id: e.occurrenceId };
+				this._entryId && (n.config_entry_id = this._entryId), await t.callService(J, "release", n), this._list &&= {
+					...this._list,
+					rows: this._list.rows.map((t) => t.occurrenceId === e.occurrenceId ? {
+						...t,
+						assignee: null
+					} : t)
+				};
+			} catch (e) {
+				this._error = Q(e, "Failed to release");
+			} finally {
+				this._setBusy(e.occurrenceId, !1);
+			}
+		}
+	}
 	async _undo(e) {
 		let t = this.hass;
 		if (t && !this._busy.has(e.occurrenceId)) {
@@ -1663,7 +1683,7 @@ var Ve = 3e4, He = 60, Ue = 6e4, We = /^#[0-9a-f]{6}$/i, Ge = class extends G {
 			e.assignee ? e.assignee.displayName : "Unassigned",
 			t.points && e.points > 0 ? `${e.points} pts` : "",
 			e.roomName ?? ""
-		].filter((e) => e.length > 0), c = this._busy.has(e.occurrenceId), l = !e.assignee && (e.eligibleMemberIds == null || this._selectedId !== void 0 && e.eligibleMemberIds.includes(this._selectedId));
+		].filter((e) => e.length > 0), c = this._busy.has(e.occurrenceId), l = !e.assignee && (e.eligibleMemberIds == null || this._selectedId !== void 0 && e.eligibleMemberIds.includes(this._selectedId)), u = e.strategy === "open" && this._selectedId !== void 0 && e.assignee?.id === this._selectedId;
 		return I`
       <li class="row${i ? " overdue" : ""}">
         ${this._renderAvatar(e.assignee)}
@@ -1686,6 +1706,12 @@ var Ve = 3e4, He = 60, Ue = 6e4, We = /^#[0-9a-f]{6}$/i, Ge = class extends G {
                   ?disabled=${c}
                   @click=${() => void this._claim(e)}
                 >Claim</button>` : R}
+          ${u ? I`<button
+                  type="button"
+                  class="btn btn-secondary"
+                  ?disabled=${c}
+                  @click=${() => void this._release(e)}
+                >Release</button>` : R}
           <button
             type="button"
             class="btn btn-primary"
