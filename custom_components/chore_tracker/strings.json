@@ -119,7 +119,7 @@
     },
     "undo": {
       "name": "Undo chore",
-      "description": "Undo the latest action on an occurrence (complete, skip, snooze, or reassign) while the server's undo window is open.",
+      "description": "Undo the latest action on an occurrence (complete, skip, snooze, reassign, claim, or release) while the server's undo window is open.",
       "fields": {
         "occurrence_id": {
           "name": "Occurrence ID",

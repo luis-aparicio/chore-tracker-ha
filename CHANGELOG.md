@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kiosk card Release button on open chores held by the picked member;
   `kiosk_list` rows carry `strategy` (bundled cards)
 
+### Fixed
+
+- Refused actions now show the server's reason (for example "Only open chores
+  can be released") instead of "409 Conflict" with the request URL, and a 403
+  on an action is no longer reported as an invalid API token. 401/403 on
+  reads still trigger re-authentication.
+
 ## [0.7.0] - 2026-10-01
 
 ### Added
