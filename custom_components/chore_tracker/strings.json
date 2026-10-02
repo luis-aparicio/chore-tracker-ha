@@ -103,6 +103,20 @@
         }
       }
     },
+    "release": {
+      "name": "Release chore",
+      "description": "Give a claimed open chore back so it is unassigned. Fixed and rotation chores cannot be released.",
+      "fields": {
+        "occurrence_id": {
+          "name": "Occurrence ID",
+          "description": "The claimed occurrence to release."
+        },
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Required when more than one Chore Tracker entry is configured."
+        }
+      }
+    },
     "undo": {
       "name": "Undo chore",
       "description": "Undo the latest action on an occurrence (complete, skip, snooze, or reassign) while the server's undo window is open.",

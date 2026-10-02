@@ -153,6 +153,14 @@ class ChoreTrackerApiClient:
             json_data={},
         )
 
+    async def async_release_occurrence(self, occurrence_id: str) -> dict[str, Any]:
+        """POST /api/v1/occurrences/:id/release (open chores only)."""
+        return await self._request(
+            "POST",
+            f"/api/v1/occurrences/{occurrence_id}/release",
+            json_data={},
+        )
+
     async def async_undo_occurrence(self, occurrence_id: str) -> dict[str, Any]:
         """POST /api/v1/occurrences/:id/undo (server enforces the undo window)."""
         return await self._request(

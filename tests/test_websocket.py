@@ -276,6 +276,7 @@ def test_kiosk_list_today_overdue_and_decay() -> None:
     assert decay["decay"] is True
     # No assignment on these test chores: claim eligibility is unknown.
     assert decay["eligibleMemberIds"] is None
+    assert decay["strategy"] is None
     assert decay["freshnessPct"] == DECAY_FRESHNESS
     assert result["points"] is True
     assert result["timezone"] == "America/Chicago"
@@ -306,3 +307,14 @@ async def test_kiosk_list_websocket(
     }
     assert msg["result"]["config_entry_id"] == setup_integration.entry_id
     assert isinstance(msg["result"]["rows"], list)
+
+
+def test_kiosk_list_carries_assignment_strategy() -> None:
+    """Rows expose the strategy so the card only offers Release on open chores."""
+    result = kiosk_list(
+        {"members": MEMBERS, "occurrences": KIOSK_OCCURRENCES},
+        now=datetime(2026, 10, 1, 18, 0, tzinfo=UTC),
+    )
+    by_id = {row["occurrenceId"]: row for row in result["rows"]}
+    assert by_id["open_all"]["strategy"] == "open"
+    assert by_id["mine"]["strategy"] == "fixed"

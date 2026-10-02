@@ -267,6 +267,14 @@ def _member_view(member: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _strategy(chore: dict[str, Any]) -> str | None:
+    assignment = chore.get("assignment")
+    if not isinstance(assignment, dict):
+        return None
+    strategy = assignment.get("strategy")
+    return strategy if isinstance(strategy, str) else None
+
+
 def _due_by_end_of_today(due_at: Any, today: date, timezone_name: str | None) -> bool:
     due = parse_due_at(due_at)
     if due is None:
@@ -337,6 +345,8 @@ def kiosk_list(
                 # Who may claim it, per the server's claim rules; None when the
                 # chore carries no assignment to judge by.
                 "eligibleMemberIds": eligible_member_ids(item, list(by_id)),
+                # Only open chores can be released (server rule).
+                "strategy": _strategy(chore),
             }
         )
 

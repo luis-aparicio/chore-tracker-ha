@@ -5,6 +5,16 @@ All notable changes to this integration are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `chore_tracker.release` service: give a claimed open chore back so it is
+  unassigned (requires a Chore Tracker server with
+  `POST /api/v1/occurrences/:id/release`)
+- Kiosk card Release button on open chores held by the picked member;
+  `kiosk_list` rows carry `strategy` (bundled cards)
+
 ## [0.7.0] - 2026-10-01
 
 ### Added
