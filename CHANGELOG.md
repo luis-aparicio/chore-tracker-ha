@@ -5,7 +5,7 @@ All notable changes to this integration are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-01
 
 ### Changed
 
@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Lovelace kiosk card shows each member's assigned chores plus "Up for grabs"
+  chores they are eligible for, credited to the selected member; freshness
+  card gains `read_only` for shared kiosk views (bundled cards)
 - `member_id` state attribute on per-member `todo` entities so Lovelace cards
   (kiosk) can attribute completions to the selected member
 - `chore_tracker/kiosk_items` WebSocket command: a member's assigned chores plus
