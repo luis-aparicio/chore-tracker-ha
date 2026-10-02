@@ -184,13 +184,20 @@ class ChoreTrackerTodoEntity(ChoreTrackerEntity, TodoListEntity):
         if not isinstance(uid, str) or not uid:
             msg = "Missing occurrence id"
             raise HomeAssistantError(msg)
+        body = self._completion_body()
         try:
-            result = await self.coordinator.client.async_complete_occurrence(uid)
+            result = await self.coordinator.client.async_complete_occurrence(
+                uid, body=body
+            )
         except (ChoreTrackerApiError, ChoreTrackerConnectionError) as err:
             raise HomeAssistantError(str(err)) from err
         if isinstance(result, dict):
             self.coordinator.fire_completed_from_action(result)
         await self.coordinator.async_request_refresh()
+
+    def _completion_body(self) -> dict[str, Any] | None:
+        """Extra body for the complete call; None keeps the token-owner default."""
+        return None
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:  # noqa: ARG002
         """Reject delete — not mapped to skip/undo."""
@@ -254,6 +261,15 @@ class ChoreTrackerMemberTodoEntity(ChoreTrackerTodoEntity):
             if occurrence.get("assigneeId") == self._member_id:
                 rows.append(row)
         return rows
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the member id so cards can attribute completions."""
+        return {"member_id": self._member_id}
+
+    def _completion_body(self) -> dict[str, Any] | None:
+        """Credit check-offs on a member's list to that member."""
+        return {"completedForMemberId": self._member_id}
 
     def _assignment_for_create(self) -> dict[str, Any]:
         return {
